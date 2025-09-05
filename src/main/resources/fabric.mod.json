@@ -2,23 +2,23 @@
 {
   "accessWidener": "matebal.accesswidener",
   "schemaVersion": 1,
-  "id": "zenith",
+  "id": "zov_corpotaion",
   "version": "1.2",
-  "name": "zenith",
+  "name": "zov_corpotaion",
   "description": "Minecraft Modification",
   "authors": [
     "Fabos",
     "Pidor"
   ],
   "contact": {
-    "website": "https://zenithclient.ru",
+    "website": "https://zovclient.ru",
     "repo": "none"
   },
   "license": "All-Rights-Reserved",
   "environment": "*",
   "entrypoints": {
     "main": [
-      "ru.zenith.core.Main"
+      "ru.zov_corporation.core.Main"
     ]
   },
   "mixins": [

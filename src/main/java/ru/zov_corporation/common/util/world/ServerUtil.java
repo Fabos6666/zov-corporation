@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
 import net.minecraft.scoreboard.*;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.apache.commons.lang3.StringUtils;
 import ru.zov_corporation.common.QuickImports;
@@ -55,6 +56,7 @@ public class ServerUtil implements QuickImports {
         else if (serverIp.contains("funtime") || serverIp.contains("skytime") || serverIp.contains("space-times") || serverIp.contains("funsky")) return "CopyTime";
         else if (brand.contains("holyworld") || brand.contains("vk.com/idwok")) return "HolyWorld";
         else if (serverIp.contains("reallyworld")) return "ReallyWorld";
+        else if (serverIp.contains("aresmine") || serverIp.contains("craftyou")) return "AresMine";
         return "Vanilla";
     }
 
@@ -103,4 +105,5 @@ public class ServerUtil implements QuickImports {
     public boolean isReallyWorld() {return server.equals("ReallyWorld");}
     public boolean isHolyWorld() {return server.equals("HolyWorld");}
     public boolean isVanilla() {return server.equals("Vanilla");}
+    public boolean isAresMine() {return server.equals("AresMine");}
 }

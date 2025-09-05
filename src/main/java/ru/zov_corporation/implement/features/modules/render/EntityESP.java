@@ -69,7 +69,13 @@ public class EntityESP extends Module {
             .value("Player","Item","TNT");
     MultiSelectSetting playerSetting = new MultiSelectSetting("Player Settings", "Settings for players")
             .value("Flat Box", "Armor", "Enchants", "Prefix", "Hand Items").visible(()-> entityType.isSelected("Player"));
+   
+    public SelectSetting boxType = new SelectSetting("Box Type", "Type of Box")
+            .value("Corner", "Full").visible(()-> playerSetting.isSelected("Flat Box"));
 
+    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(()-> playerSetting.isSelected("Flat Box"));
+
+    
     public EntityESP() {
         super("EntityESP", "Entity ESP", ModuleCategory.RENDER);
         setup(sizeSetting, entityType, playerSetting);
@@ -175,35 +181,47 @@ public class EntityESP extends Module {
         }
     }
 
-    private void drawFlatBox(boolean friend, Vector4d vec) {
+private void drawFlatBox(boolean friend, Vector4d vec) {
         int client = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
         int black = ColorUtil.HALF_BLACK;
-
         float posX = (float) vec.x;
         float posY = (float) vec.y;
         float endPosX = (float) vec.z;
         float endPosY = (float) vec.w;
         float size = (endPosX - posX) / 3;
 
-        Render2DUtil.drawQuad(posX - 1F, posY - 1,size + 1,1.5F,black);
-        Render2DUtil.drawQuad(posX - 1F, posY + 0.5F,1.5F,size + 0.5F,black);
-        Render2DUtil.drawQuad(posX - 1F, endPosY - size - 1,1.5F,size,black);
-        Render2DUtil.drawQuad(posX - 1F, endPosY - 1,size + 1,1.5F,black);
-        Render2DUtil.drawQuad(endPosX - size + 0.5F, posY - 1,size + 1,1.5F,black);
-        Render2DUtil.drawQuad(endPosX, posY + 0.5F,1.5F,size + 0.5F,black);
-        Render2DUtil.drawQuad(endPosX, endPosY - size - 1,1.5F,size,black);
-        Render2DUtil.drawQuad(endPosX - size + 0.5F, endPosY - 1,size + 1,1.5F,black);
-
-        Render2DUtil.drawQuad(posX - 0.5F, posY - 0.5F,size,0.5F,client);
-        Render2DUtil.drawQuad(posX - 0.5F, posY,0.5F,size + 0.5F,client);
-        Render2DUtil.drawQuad(posX - 0.5F, endPosY - size - 0.5F,0.5F,size,client);
-        Render2DUtil.drawQuad(posX - 0.5F, endPosY - 0.5F,size,0.5F,client);
-        Render2DUtil.drawQuad(endPosX - size + 1, posY - 0.5F,size,0.5F,client);
-        Render2DUtil.drawQuad(endPosX + 0.5F, posY,0.5F,size + 0.5F,client);
-        Render2DUtil.drawQuad(endPosX + 0.5F, endPosY - size - 0.5F,0.5F,size,client);
-        Render2DUtil.drawQuad(endPosX - size + 1, endPosY - 0.5F,size,0.5F,client);
+        if (boxType.isSelected("Corner")) {
+            Render2DUtil.drawQuad(posX - 0.5F, posY - 0.5F, size, 0.5F, client);
+            Render2DUtil.drawQuad(posX - 0.5F, posY, 0.5F, size + 0.5F, client);
+            Render2DUtil.drawQuad(posX - 0.5F, endPosY - size - 0.5F, 0.5F, size, client);
+            Render2DUtil.drawQuad(posX - 0.5F, endPosY - 0.5F, size, 0.5F, client);
+            Render2DUtil.drawQuad(endPosX - size + 1, posY - 0.5F, size, 0.5F, client);
+            Render2DUtil.drawQuad(endPosX + 0.5F, posY, 0.5F, size + 0.5F, client);
+            Render2DUtil.drawQuad(endPosX + 0.5F, endPosY - size - 0.5F, 0.5F, size, client);
+            Render2DUtil.drawQuad(endPosX - size + 1, endPosY - 0.5F, size, 0.5F, client);
+            if (boxOutline.isValue()) {
+                Render2DUtil.drawQuad(posX - 1F, posY - 1, size + 1, 1.5F, black);
+                Render2DUtil.drawQuad(posX - 1F, posY + 0.5F, 1.5F, size + 0.5F, black);
+                Render2DUtil.drawQuad(posX - 1F, endPosY - size - 1, 1.5F, size, black);
+                Render2DUtil.drawQuad(posX - 1F, endPosY - 1, size + 1, 1.5F, black);
+                Render2DUtil.drawQuad(endPosX - size + 0.5F, posY - 1, size + 1, 1.5F, black);
+                Render2DUtil.drawQuad(endPosX, posY + 0.5F, 1.5F, size + 0.5F, black);
+                Render2DUtil.drawQuad(endPosX, endPosY - size - 1, 1.5F, size, black);
+                Render2DUtil.drawQuad(endPosX - size + 0.5F, endPosY - 1, size + 1, 1.5F, black);
+            }
+        } else if (boxType.isSelected("Full")) {
+            if (boxOutline.isValue()) {
+                Render2DUtil.drawQuad(posX - 1F, posY - 1F, endPosX - posX + 2F, 1.5F, black);
+                Render2DUtil.drawQuad(posX - 1F, posY - 1F, 1.5F, endPosY - posY + 2F, black);
+                Render2DUtil.drawQuad(posX - 1F, endPosY - 1F, endPosX - posX + 2F, 1.5F, black);
+                Render2DUtil.drawQuad(endPosX - 0.5F, posY - 1F, 1.5F, endPosY - posY + 2F, black);
+            }
+            Render2DUtil.drawQuad(posX - 0.5F, posY - 0.5F, endPosX - posX + 1F, 0.5F, client);
+            Render2DUtil.drawQuad(posX - 0.5F, posY - 0.5F, 0.5F, endPosY - posY + 1F, client);
+            Render2DUtil.drawQuad(posX - 0.5F, endPosY - 0.5F, endPosX - posX + 1F, 0.5F, client);
+            Render2DUtil.drawQuad(endPosX, posY - 0.5F, 0.5F, endPosY - posY + 1F, client);
+        }
     }
-
     private void drawArmor(DrawContext context, PlayerEntity player, Vector4d vec, FontRenderer font) {
         MatrixStack matrix = context.getMatrices();
         List<ItemStack> items = new ArrayList<>();

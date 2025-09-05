@@ -50,13 +50,15 @@ public class Aura extends Module {
     PointFinder pointFinder = new PointFinder();
     @NonFinal
     LivingEntity target, lastTarget;
-    Float maxDistance = 3.3f;
 
     MultiSelectSetting targetType = new MultiSelectSetting("Target Type", "Filters the entire list of targets by type")
             .value("Players", "Mobs", "Animals", "Friends");
 
     MultiSelectSetting attackSetting = new MultiSelectSetting("Attack Setting", "Allows you to customize the attack")
             .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
+
+    ValueSetting maxDistanceSetting = new ValueSetting("Attack Distance", "Maximum distance for attacking targets")
+            .setValue(3.3F).range(1.0F, 6.0F);
 
     SelectSetting correctionType = new SelectSetting("Correction Type", "Selects the type of correction")
             .value("Free", "Focused").selected("Free");
@@ -78,7 +80,7 @@ public class Aura extends Module {
 
     public Aura() {
         super("Aura", ModuleCategory.COMBAT);
-        setup(targetType, attackSetting, correctionGroup, aimMode, targetEspGroup);
+        setup(targetType, attackSetting, maxDistanceSetting, correctionGroup, aimMode, targetEspGroup);
     }
 
     @Override
@@ -132,7 +134,7 @@ public class Aura extends Module {
 
     private LivingEntity updateTarget() {
         TargetSelector.EntityFilter filter = new TargetSelector.EntityFilter(targetType.getSelected());
-        targetSelector.searchTargets(mc.world.getEntities(), maxDistance, 360, attackSetting.isSelected("Ignore The Walls"));
+        targetSelector.searchTargets(mc.world.getEntities(), maxDistanceSetting.getValue(), 360, attackSetting.isSelected("Ignore The Walls"));
         targetSelector.validateTarget(filter::isValid);
         return targetSelector.getCurrentTarget();
     }
@@ -150,7 +152,7 @@ public class Aura extends Module {
                 }
             }
             case "FunTime" -> {
-                if (attackHandler.canAttack(config, 3)) {
+                if (attackHandler.canAttack(config, (int) maxDistanceSetting.getValue())) {
                     controller.clear();
                     controller.rotateTo(rotation, target, 40, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
                 }
@@ -164,6 +166,7 @@ public class Aura extends Module {
     }
 
     public AttackPerpetrator.AttackPerpetratorConfigurable getConfig() {
+        float maxDistance = maxDistanceSetting.getValue();
         Pair<Vec3d, Box> point = pointFinder.computeVector(target, maxDistance, RotationController.INSTANCE.getRotation(), getSmoothMode().randomValue(), attackSetting.isSelected("Ignore The Walls"));
         Angle angle = AngleUtil.fromVec3d(point.getLeft().subtract(Objects.requireNonNull(mc.player).getEyePos()));
         Box box = point.getRight();

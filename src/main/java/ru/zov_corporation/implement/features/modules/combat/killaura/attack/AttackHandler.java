@@ -1,4 +1,4 @@
-package ru.zenith.implement.features.modules.combat.killaura.attack;
+package ru.zov_corporation.implement.features.modules.combat.killaura.attack;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,17 +14,17 @@ import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.*;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.Hand;
-import ru.zenith.api.event.types.EventType;
-import ru.zenith.common.QuickImports;
-import ru.zenith.common.util.entity.*;
-import ru.zenith.common.util.math.MathUtil;
-import ru.zenith.common.util.other.StopWatch;
-import ru.zenith.core.listener.impl.EventListener;
-import ru.zenith.implement.events.item.UsingItemEvent;
-import ru.zenith.implement.events.packet.PacketEvent;
-import ru.zenith.implement.features.modules.combat.Criticals;
-import ru.zenith.implement.features.modules.combat.killaura.rotation.*;
-import ru.zenith.implement.features.modules.movement.AutoSprint;
+import ru.zov_corporation.api.event.types.EventType;
+import ru.zov_corporation.common.QuickImports;
+import ru.zov_corporation.common.util.entity.*;
+import ru.zov_corporation.common.util.math.MathUtil;
+import ru.zov_corporation.common.util.other.StopWatch;
+import ru.zov_corporation.core.listener.impl.EventListener;
+import ru.zov_corporation.implement.events.item.UsingItemEvent;
+import ru.zov_corporation.implement.events.packet.PacketEvent;
+import ru.zov_corporation.implement.features.modules.combat.Criticals;
+import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.*;
+import ru.zov_corporation.implement.features.modules.movement.AutoSprint;
 
 @Setter
 @Getter

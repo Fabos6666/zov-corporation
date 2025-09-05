@@ -32,7 +32,9 @@ import org.joml.*;
 import ru.zov_corporation.api.event.EventHandler;
 import ru.zov_corporation.api.feature.module.Module;
 import ru.zov_corporation.api.feature.module.ModuleCategory;
+import ru.zov_corporation.api.feature.module.setting.implement.BooleanSetting;
 import ru.zov_corporation.api.feature.module.setting.implement.MultiSelectSetting;
+import ru.zov_corporation.api.feature.module.setting.implement.SelectSetting;
 import ru.zov_corporation.api.feature.module.setting.implement.ValueSetting;
 import ru.zov_corporation.api.repository.friend.FriendUtils;
 import ru.zov_corporation.api.system.animation.Animation;
@@ -69,16 +71,16 @@ public class EntityESP extends Module {
             .value("Player","Item","TNT");
     MultiSelectSetting playerSetting = new MultiSelectSetting("Player Settings", "Settings for players")
             .value("Flat Box", "Armor", "Enchants", "Prefix", "Hand Items").visible(()-> entityType.isSelected("Player"));
-   
+
     public SelectSetting boxType = new SelectSetting("Box Type", "Type of Box")
             .value("Corner", "Full").visible(()-> playerSetting.isSelected("Flat Box"));
 
     public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(()-> playerSetting.isSelected("Flat Box"));
 
-    
+
     public EntityESP() {
         super("EntityESP", "Entity ESP", ModuleCategory.RENDER);
-        setup(sizeSetting, entityType, playerSetting);
+        setup(sizeSetting, entityType, playerSetting, boxType,  boxOutline );
         encMap.put(Enchantments.BLAST_PROTECTION, "B");
         encMap.put(Enchantments.PROTECTION, "P");
         encMap.put(Enchantments.SHARPNESS, "S");
@@ -181,7 +183,7 @@ public class EntityESP extends Module {
         }
     }
 
-private void drawFlatBox(boolean friend, Vector4d vec) {
+    private void drawFlatBox(boolean friend, Vector4d vec) {
         int client = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
         int black = ColorUtil.HALF_BLACK;
         float posX = (float) vec.x;

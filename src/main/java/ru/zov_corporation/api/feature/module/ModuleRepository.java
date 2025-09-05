@@ -71,7 +71,8 @@ public class ModuleRepository {
                 new CrossHair(),
                 new FireWorkBooster(),
                 new Spider(),
-                new ServerRPSpoofer()
+                new ServerRPSpoofer(),
+                new FakeLag()
         );
     }
 

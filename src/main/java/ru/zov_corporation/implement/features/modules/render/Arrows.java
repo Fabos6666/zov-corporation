@@ -16,6 +16,7 @@ import org.joml.Matrix4f;
 import ru.zov_corporation.api.event.EventHandler;
 import ru.zov_corporation.api.feature.module.Module;
 import ru.zov_corporation.api.feature.module.ModuleCategory;
+import ru.zov_corporation.api.feature.module.setting.implement.SelectSetting;
 import ru.zov_corporation.api.feature.module.setting.implement.ValueSetting;
 import ru.zov_corporation.api.repository.friend.FriendUtils;
 import ru.zov_corporation.api.system.animation.Animation;
@@ -33,7 +34,14 @@ import static net.minecraft.client.render.VertexFormats.POSITION_TEXTURE_COLOR;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class Arrows extends Module {
-    Identifier iconId = Identifier.of("textures/arrow.png");
+    Identifier[] iconIds = {
+            Identifier.of("textures/arrow.png"),
+            Identifier.of("textures/arrow1.png"),
+            Identifier.of("textures/arrow2.png"),
+            Identifier.of("textures/arrow3.png"),
+            Identifier.of("textures/arrow4.png"),
+            Identifier.of("textures/arrow5.png")
+    };
     Animation radiusAnim = new DecelerateAnimation().setMs(150).setValue(12);
 
     ValueSetting radiusSetting = new ValueSetting("Radius", "Radius of arrows")
@@ -42,14 +50,22 @@ public class Arrows extends Module {
     ValueSetting sizeSetting = new ValueSetting("Size", "Size of arrows")
             .setValue(16).range(8, 20);
 
+    SelectSetting arrowType = new SelectSetting("Arrow Type", "Selects the type of arrow texture")
+            .value("Стандартные", "Дельта", "Новые", "Упрощённые", "Современные", "Минималистичные");
+
+    SelectSetting animationMode = new SelectSetting("Animation Mode", "Выбор поведения стрелочек")
+            .value("Анимированые", "Статические");
+
     public Arrows() {
         super("Arrows", "Arrows", ModuleCategory.RENDER);
-        setup(radiusSetting,sizeSetting);
+        setup(radiusSetting, sizeSetting, arrowType, animationMode);
     }
 
     @EventHandler
     public void onTick(TickEvent e) {
-        radiusAnim.setDirection(mc.player.isSprinting() ? Direction.FORWARDS : Direction.BACKWARDS);
+        if (animationMode.getSelected().equals("Анимированые")) {
+            radiusAnim.setDirection(mc.player.isSprinting() ? Direction.FORWARDS : Direction.BACKWARDS);
+        }
     }
 
     @EventHandler
@@ -59,7 +75,7 @@ public class Arrows extends Module {
 
         float middleW = mc.getWindow().getScaledWidth() / 2f;
         float middleH = mc.getWindow().getScaledHeight() / 2f;
-        float posY = middleH - radiusSetting.getValue() - radiusAnim.getOutput().floatValue();
+        float posY = middleH - radiusSetting.getValue() - (animationMode.getSelected().equals("Анимированые") ? radiusAnim.getOutput().floatValue() : 0);
         float size = sizeSetting.getValue();
 
         if (!mc.options.hudHidden && mc.options.getPerspective().equals(Perspective.FIRST_PERSON) && !players.isEmpty()) {
@@ -67,7 +83,17 @@ public class Arrows extends Module {
             RenderSystem.disableCull();
             RenderSystem.disableDepthTest();
             RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_CONSTANT_ALPHA);
-            RenderSystem.setShaderTexture(0, iconId);
+            
+            int selectedIndex = switch (arrowType.getSelected()) {
+                case "Дельта" -> 1;
+                case "Новые" -> 2;
+                case "Упрощённые" -> 3;
+                case "Современные" -> 4;
+                case "Минималистичные" -> 5;
+                default -> 0;
+            };
+            RenderSystem.setShaderTexture(0, iconIds[selectedIndex]);
+
             RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
             BufferBuilder buffer = tessellator.begin(QUADS, POSITION_TEXTURE_COLOR);
 
@@ -79,8 +105,8 @@ public class Arrows extends Module {
                 matrix.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(yaw));
                 matrix.translate(-middleW, -middleH, 0.0F);
                 Matrix4f matrix4f = matrix.peek().getPositionMatrix();
-                buffer.vertex(matrix4f, middleW - (size / 2f), posY + size, 0).texture(0f, 1f).color(ColorUtil.multAlpha(ColorUtil.multDark(color,0.4F), 0.5F));
-                buffer.vertex(matrix4f, middleW + size / 2f, posY + size, 0).texture(1f, 1f).color(ColorUtil.multAlpha(ColorUtil.multDark(color,0.4F), 0.5F));
+                buffer.vertex(matrix4f, middleW - (size / 2f), posY + size, 0).texture(0f, 1f).color(ColorUtil.multAlpha(ColorUtil.multDark(color, 0.4F), 0.5F));
+                buffer.vertex(matrix4f, middleW + size / 2f, posY + size, 0).texture(1f, 1f).color(ColorUtil.multAlpha(ColorUtil.multDark(color, 0.4F), 0.5F));
                 buffer.vertex(matrix4f, middleW + size / 2f, posY, 0).texture(1f, 0).color(color);
                 buffer.vertex(matrix4f, middleW - (size / 2f), posY, 0).texture(0, 0).color(color);
                 matrix.translate(middleW, middleH, 0.0F);

@@ -56,7 +56,7 @@ public class Aura extends Module {
             .value("Players", "Mobs", "Animals", "Friends");
 
     MultiSelectSetting attackSetting = new MultiSelectSetting("Attack Setting", "Allows you to customize the attack")
-            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls");
+            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
 
     SelectSetting correctionType = new SelectSetting("Correction Type", "Selects the type of correction")
             .value("Free", "Focused").selected("Free");
@@ -65,7 +65,7 @@ public class Aura extends Module {
             .settings(correctionType).setValue(true);
 
     SelectSetting aimMode = new SelectSetting("Rotation Type", "Allows you to select the rotation type")
-            .value("FunTime", "Snap", "Matrix").selected("Snap");
+            .value("FunTime", "Snap", "Matrix", "Linear").selected("Snap");
 
     SelectSetting targetEspType = new SelectSetting("Target Esp Type", "Selects the type of target esp")
             .value("Cube", "Circle", "Ghosts").selected("Circle");
@@ -102,7 +102,7 @@ public class Aura extends Module {
         }
     }
 
-    
+
     @EventHandler
     public void onPacket(PacketEvent e) {
         if (e.getPacket() instanceof EntityStatusS2CPacket status && status.getStatus() == 30) {
@@ -137,7 +137,7 @@ public class Aura extends Module {
         return targetSelector.getCurrentTarget();
     }
 
-    
+
     private void rotateToTarget(AttackPerpetrator.AttackPerpetratorConfigurable config) {
         AttackHandler attackHandler = Main.getInstance().getAttackPerpetrator().getAttackHandler();
         RotationController controller = RotationController.INSTANCE;
@@ -155,7 +155,11 @@ public class Aura extends Module {
                     controller.rotateTo(rotation, target, 40, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
                 }
             }
-            case "Matrix" -> controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            case "Matrix" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            }
+            case "Linear" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            }
+            
         }
     }
 
@@ -170,12 +174,13 @@ public class Aura extends Module {
         return new RotationConfig(getSmoothMode(), correctionGroup.isValue(), correctionType.isSelected("Free"));
     }
 
-    
+
     public AngleSmoothMode getSmoothMode() {
         return switch (aimMode.getSelected()) {
             case "FunTime" -> new FunTimeSmoothMode();
             case "Matrix" -> new MatrixSmoothMode();
             case "Snap" -> new SnapSmoothMode();
+            case "Linear" -> new LinearSmoothMode();
             default -> new LinearSmoothMode();
         };
     }

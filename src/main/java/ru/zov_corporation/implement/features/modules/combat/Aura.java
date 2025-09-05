@@ -1,4 +1,4 @@
-package ru.zov_corporation.implement.features.modules.combat;
+package ru.zenith.implement.features.modules.combat;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -11,28 +11,28 @@ import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.Pair;
 import net.minecraft.util.math.*;
-import ru.zov_corporation.api.event.EventHandler;
-import ru.zov_corporation.api.event.types.EventType;
-import ru.zov_corporation.api.feature.module.Module;
-import ru.zov_corporation.api.feature.module.ModuleCategory;
-import ru.zov_corporation.api.feature.module.setting.implement.*;
-import ru.zov_corporation.api.system.animation.Animation;
-import ru.zov_corporation.api.system.animation.Direction;
-import ru.zov_corporation.api.system.animation.implement.DecelerateAnimation;
-import ru.zov_corporation.common.util.other.Instance;
-import ru.zov_corporation.common.util.render.Render3DUtil;
-import ru.zov_corporation.common.util.task.TaskPriority;
-import ru.zov_corporation.core.Main;
-import ru.zov_corporation.implement.events.packet.PacketEvent;
-import ru.zov_corporation.implement.events.player.RotationUpdateEvent;
-import ru.zov_corporation.implement.events.render.WorldRenderEvent;
-import ru.zov_corporation.implement.features.draggables.Notifications;
-import ru.zov_corporation.implement.features.modules.combat.killaura.attack.AttackHandler;
-import ru.zov_corporation.implement.features.modules.combat.killaura.attack.AttackPerpetrator;
-import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.*;
-import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.angle.*;
-import ru.zov_corporation.implement.features.modules.combat.killaura.target.TargetSelector;
-import ru.zov_corporation.implement.features.modules.render.Hud;
+import ru.zenith.api.event.EventHandler;
+import ru.zenith.api.event.types.EventType;
+import ru.zenith.api.feature.module.Module;
+import ru.zenith.api.feature.module.ModuleCategory;
+import ru.zenith.api.feature.module.setting.implement.*;
+import ru.zenith.api.system.animation.Animation;
+import ru.zenith.api.system.animation.Direction;
+import ru.zenith.api.system.animation.implement.DecelerateAnimation;
+import ru.zenith.common.util.other.Instance;
+import ru.zenith.common.util.render.Render3DUtil;
+import ru.zenith.common.util.task.TaskPriority;
+import ru.zenith.core.Main;
+import ru.zenith.implement.events.packet.PacketEvent;
+import ru.zenith.implement.events.player.RotationUpdateEvent;
+import ru.zenith.implement.events.render.WorldRenderEvent;
+import ru.zenith.implement.features.draggables.Notifications;
+import ru.zenith.implement.features.modules.combat.killaura.attack.AttackHandler;
+import ru.zenith.implement.features.modules.combat.killaura.attack.AttackPerpetrator;
+import ru.zenith.implement.features.modules.combat.killaura.rotation.*;
+import ru.zenith.implement.features.modules.combat.killaura.rotation.angle.*;
+import ru.zenith.implement.features.modules.combat.killaura.target.TargetSelector;
+import ru.zenith.implement.features.modules.render.Hud;
 
 import java.util.Objects;
 
@@ -56,7 +56,7 @@ public class Aura extends Module {
             .value("Players", "Mobs", "Animals", "Friends");
 
     MultiSelectSetting attackSetting = new MultiSelectSetting("Attack Setting", "Allows you to customize the attack")
-            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls");
+            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
 
     SelectSetting correctionType = new SelectSetting("Correction Type", "Selects the type of correction")
             .value("Free", "Focused").selected("Free");
@@ -65,7 +65,7 @@ public class Aura extends Module {
             .settings(correctionType).setValue(true);
 
     SelectSetting aimMode = new SelectSetting("Rotation Type", "Allows you to select the rotation type")
-            .value("FunTime", "Snap", "Matrix").selected("Snap");
+            .value("FunTime", "Snap", "Matrix", "Linear", "Rage Snap").selected("Snap");
 
     SelectSetting targetEspType = new SelectSetting("Target Esp Type", "Selects the type of target esp")
             .value("Cube", "Circle", "Ghosts").selected("Circle");
@@ -102,7 +102,7 @@ public class Aura extends Module {
         }
     }
 
-    
+
     @EventHandler
     public void onPacket(PacketEvent e) {
         if (e.getPacket() instanceof EntityStatusS2CPacket status && status.getStatus() == 30) {
@@ -137,7 +137,7 @@ public class Aura extends Module {
         return targetSelector.getCurrentTarget();
     }
 
-    
+
     private void rotateToTarget(AttackPerpetrator.AttackPerpetratorConfigurable config) {
         AttackHandler attackHandler = Main.getInstance().getAttackPerpetrator().getAttackHandler();
         RotationController controller = RotationController.INSTANCE;
@@ -155,7 +155,15 @@ public class Aura extends Module {
                     controller.rotateTo(rotation, target, 40, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
                 }
             }
-            case "Matrix" -> controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            case "Matrix" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            }
+            case "Linear" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            }
+            case "Rage Snap" -> {
+                if (attackHandler.canAttack(config, 1) || !attackHandler.getAttackTimer().finished(100)) {
+                    controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+                }
+            }
         }
     }
 
@@ -170,12 +178,13 @@ public class Aura extends Module {
         return new RotationConfig(getSmoothMode(), correctionGroup.isValue(), correctionType.isSelected("Free"));
     }
 
-    
+
     public AngleSmoothMode getSmoothMode() {
         return switch (aimMode.getSelected()) {
             case "FunTime" -> new FunTimeSmoothMode();
             case "Matrix" -> new MatrixSmoothMode();
             case "Snap" -> new SnapSmoothMode();
+            case "Linear" -> new LinearSmoothMode();
             default -> new LinearSmoothMode();
         };
     }

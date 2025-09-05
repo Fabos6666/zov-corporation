@@ -55,7 +55,7 @@ public class Aura extends Module {
             .value("Players", "Mobs", "Animals", "Friends");
 
     MultiSelectSetting attackSetting = new MultiSelectSetting("Attack Setting", "Allows you to customize the attack")
-            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
+            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls");
 
     ValueSetting maxDistanceSetting = new ValueSetting("Attack Distance", "Maximum distance for attacking targets")
             .setValue(3.0F).range(1.0F, 6.0F);

@@ -119,15 +119,10 @@ public class AttackHandler implements QuickImports {
         }
 
         SimulatedPlayer simulated = SimulatedPlayer.simulateLocalPlayer(ticks);
-        boolean noRestrict = !hasMovementRestrictions(simulated);
-        boolean critState = isPlayerInCriticalState(simulated, ticks);
-        if (config.isSmartCrits()) {
-            if (noRestrict) {
-                return critState || simulated.onGround;
-            } else {
-                return true;
-            }
+        if (config.isOnlyCritical() && !hasMovementRestrictions(simulated)) {
+            return isPlayerInCriticalState(simulated, ticks);
         }
+
         return true;
     }
 
@@ -143,7 +138,7 @@ public class AttackHandler implements QuickImports {
     }
 
     private boolean isPlayerInCriticalState(SimulatedPlayer simulated, int ticks) {
-        boolean fall = simulated.fallDistance > 0;
+        boolean fall = simulated.fallDistance > 0 && (simulated.fallDistance < 0.08 || !SimulatedPlayer.simulateLocalPlayer(ticks + 1).onGround);
         return !simulated.onGround && (fall || Criticals.getInstance().isState());
     }
 }

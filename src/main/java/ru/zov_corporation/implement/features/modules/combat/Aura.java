@@ -58,7 +58,7 @@ public class Aura extends Module {
             .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
 
     ValueSetting maxDistanceSetting = new ValueSetting("Attack Distance", "Maximum distance for attacking targets")
-            .setValue(3.3F).range(1.0F, 6.0F);
+            .setValue(3.0F).range(1.0F, 6.0F);
 
     SelectSetting correctionType = new SelectSetting("Correction Type", "Selects the type of correction")
             .value("Free", "Focused").selected("Free");

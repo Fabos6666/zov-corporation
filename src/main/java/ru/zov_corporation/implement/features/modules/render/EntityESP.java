@@ -23,7 +23,8 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -37,9 +38,6 @@ import ru.zov_corporation.api.feature.module.setting.implement.MultiSelectSettin
 import ru.zov_corporation.api.feature.module.setting.implement.SelectSetting;
 import ru.zov_corporation.api.feature.module.setting.implement.ValueSetting;
 import ru.zov_corporation.api.repository.friend.FriendUtils;
-import ru.zov_corporation.api.system.animation.Animation;
-import ru.zov_corporation.api.system.animation.Direction;
-import ru.zov_corporation.api.system.animation.implement.DecelerateAnimation;
 import ru.zov_corporation.api.system.font.FontRenderer;
 import ru.zov_corporation.api.system.font.Fonts;
 import ru.zov_corporation.api.system.shape.ShapeProperties;
@@ -49,9 +47,11 @@ import ru.zov_corporation.common.util.math.ProjectionUtil;
 import ru.zov_corporation.common.util.entity.PlayerIntersectionUtil;
 import ru.zov_corporation.common.util.other.Instance;
 import ru.zov_corporation.common.util.render.Render2DUtil;
+import ru.zov_corporation.common.util.render.Render3DUtil;
 import ru.zov_corporation.implement.events.player.TickEvent;
 import ru.zov_corporation.implement.events.render.DrawEvent;
 import ru.zov_corporation.implement.events.render.WorldLoadEvent;
+import ru.zov_corporation.implement.events.render.WorldRenderEvent;
 import ru.zov_corporation.implement.features.modules.combat.AntiBot;
 import java.lang.Math;
 import java.util.*;
@@ -62,7 +62,7 @@ public class EntityESP extends Module {
         return Instance.get(EntityESP.class);
     }
     Identifier TEXTURE = Identifier.of("textures/container.png");
-    List<CustomPlayer> players = new ArrayList<>();
+    List<PlayerEntity> players = new ArrayList<>();
     Map<RegistryKey<Enchantment>, String> encMap = new HashMap<>();
 
     ValueSetting sizeSetting = new ValueSetting("Tag Size", "Tags size")
@@ -70,17 +70,23 @@ public class EntityESP extends Module {
     public MultiSelectSetting entityType = new MultiSelectSetting("Entity Type", "Entity that will be displayed")
             .value("Player","Item","TNT");
     MultiSelectSetting playerSetting = new MultiSelectSetting("Player Settings", "Settings for players")
-            .value("Flat Box", "Armor", "Enchants", "Prefix", "Hand Items").visible(()-> entityType.isSelected("Player"));
+            .value("Box", "Armor", "Enchants", "Prefix", "Hand Items").visible(()-> entityType.isSelected("Player"));
 
     public SelectSetting boxType = new SelectSetting("Box Type", "Type of Box")
-            .value("Corner", "Full").visible(()-> playerSetting.isSelected("Flat Box"));
+            .value("Corner", "Full", "3D Box").visible(()-> playerSetting.isSelected("Box"));
 
-    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(()-> playerSetting.isSelected("Flat Box"));
+    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(()-> playerSetting.isSelected("Box") && !boxType.isSelected("3D Box"));
+
+    public ValueSetting boxAlpha = new ValueSetting("Alpha", "Box transparency")
+            .setValue(1.0F).range(0.1F, 1.0F).visible(()-> playerSetting.isSelected("Box") && boxType.isSelected("3D Box"));
+
+    public BooleanSetting rotateWithPlayer = new BooleanSetting("Rotate With Player", "Rotate box with player's facing direction")
+            .setValue(false).visible(()-> playerSetting.isSelected("Box") && boxType.isSelected("3D Box"));
 
 
     public EntityESP() {
         super("EntityESP", "Entity ESP", ModuleCategory.RENDER);
-        setup(sizeSetting, entityType, playerSetting, boxType,  boxOutline );
+        setup(sizeSetting, entityType, playerSetting, boxType, boxOutline, boxAlpha, rotateWithPlayer);
         encMap.put(Enchantments.BLAST_PROTECTION, "B");
         encMap.put(Enchantments.PROTECTION, "P");
         encMap.put(Enchantments.SHARPNESS, "S");
@@ -102,12 +108,44 @@ public class EntityESP extends Module {
 
     @EventHandler
     public void onTick(TickEvent e) {
-        players.removeIf(p -> p.animation.isFinished(Direction.FORWARDS));
-        players.forEach(p -> {p.player.prevX = p.player.getX();p.player.prevY = p.player.getY();p.player.prevZ = p.player.getZ();});
-        mc.world.getPlayers().stream().filter(player -> player != mc.player).forEach(player -> {
-            players.removeIf(s -> s.player.getId() == player.getId());
-            players.add(new CustomPlayer(player, new DecelerateAnimation().setMs(1000).setValue(1)));
-        });
+        // Простое обновление списка игроков без анимаций
+        players.clear();
+        if (mc.world != null) {
+            mc.world.getPlayers().stream()
+                .filter(player -> player != mc.player)
+                .forEach(players::add);
+        }
+    }
+
+    @EventHandler
+    public void onWorldRender(WorldRenderEvent e) {
+        if (!entityType.isSelected("Player") || !playerSetting.isSelected("Box") || !boxType.isSelected("3D Box")) {
+            return;
+        }
+        
+        for (PlayerEntity player : players) {
+            if (player == null) continue;
+            
+            float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(player.getBoundingBox().getCenter());
+            if (distance < 1) continue;
+            
+            boolean friend = FriendUtils.isFriend(player);
+            int color = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
+            
+            // Apply alpha to color
+            int alpha = (int) (boxAlpha.getValue() * 255);
+            color = (color & 0x00FFFFFF) | (alpha << 24);
+            
+            Box box = player.getBoundingBox();
+            
+            if (rotateWithPlayer.isValue()) {
+                // Рендер с поворотом по направлению взгляда игрока
+                drawRotatedBox(e.getStack(), box, color, player.getYaw());
+            } else {
+                // Обычный рендер без поворота
+                Render3DUtil.drawBox(box, color, 2, true, true, true);
+            }
+        }
     }
 
     @EventHandler
@@ -117,19 +155,17 @@ public class EntityESP extends Module {
         FontRenderer font = Fonts.getSize(sizeSetting.getInt(), Fonts.Type.DEFAULT);
         FontRenderer bigFont = Fonts.getSize(sizeSetting.getInt() + 2, Fonts.Type.DEFAULT);
         if (entityType.isSelected("Player")) {
-            for (CustomPlayer customEntity : players) {
-                PlayerEntity player = customEntity.player;
+            for (PlayerEntity player : players) {
                 if (player == null) continue;
 
                 Vector4d vec4d = ProjectionUtil.getVector4D(player);
                 float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(player.getBoundingBox().getCenter());
-                float animRemove = MathHelper.clamp(1 - customEntity.animation.getOutput().floatValue(),0,1);
                 boolean friend = FriendUtils.isFriend(player);
 
                 if (distance < 1) continue;
                 if (ProjectionUtil.cantSee(vec4d)) continue;
 
-                if (playerSetting.isSelected("Flat Box")) drawFlatBox(friend, vec4d);
+                if (playerSetting.isSelected("Box")) drawBox(friend, vec4d, player);
                 if (playerSetting.isSelected("Armor")) drawArmor(context, player, vec4d, font);
                 if (playerSetting.isSelected("Hand Items")) drawHands(matrix, player, font, vec4d);
 
@@ -183,7 +219,12 @@ public class EntityESP extends Module {
         }
     }
 
-    private void drawFlatBox(boolean friend, Vector4d vec) {
+    private void drawBox(boolean friend, Vector4d vec, PlayerEntity player) {
+        if (boxType.isSelected("3D Box")) {
+            // 3D Box rendering will be handled in onWorldRender
+            return;
+        }
+        
         int client = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
         int black = ColorUtil.HALF_BLACK;
         float posX = (float) vec.x;
@@ -354,5 +395,68 @@ public class EntityESP extends Module {
         return "";
     }
 
-    public record CustomPlayer(PlayerEntity player, Animation animation) {}
+    private void drawRotatedBox(MatrixStack matrixStack, Box box, int color, float yaw) {
+        // Получаем центр бокса
+        Vec3d center = box.getCenter();
+        
+        // Создаем повернутый бокс
+        Box rotatedBox = createRotatedBox(box, center, yaw);
+        
+        // Рендерим повернутый бокс
+        Render3DUtil.drawBox(rotatedBox, color, 2, true, true, true);
+    }
+    
+    private Box createRotatedBox(Box originalBox, Vec3d center, float yaw) {
+        // Получаем углы в радианах
+        double radians = Math.toRadians(yaw);
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        
+        // Получаем размеры бокса
+        double halfWidth = (originalBox.maxX - originalBox.minX) / 2.0;
+        double halfHeight = (originalBox.maxY - originalBox.minY) / 2.0;
+        double halfDepth = (originalBox.maxZ - originalBox.minZ) / 2.0;
+        
+        // Создаем 8 углов бокса относительно центра
+        Vec3d[] corners = {
+            new Vec3d(-halfWidth, -halfHeight, -halfDepth), // minX, minY, minZ
+            new Vec3d(halfWidth, -halfHeight, -halfDepth),  // maxX, minY, minZ
+            new Vec3d(halfWidth, -halfHeight, halfDepth),   // maxX, minY, maxZ
+            new Vec3d(-halfWidth, -halfHeight, halfDepth),  // minX, minY, maxZ
+            new Vec3d(-halfWidth, halfHeight, -halfDepth),  // minX, maxY, minZ
+            new Vec3d(halfWidth, halfHeight, -halfDepth),   // maxX, maxY, minZ
+            new Vec3d(halfWidth, halfHeight, halfDepth),    // maxX, maxY, maxZ
+            new Vec3d(-halfWidth, halfHeight, halfDepth)    // minX, maxY, maxZ
+        };
+        
+        // Поворачиваем каждый угол
+        Vec3d[] rotatedCorners = new Vec3d[8];
+        for (int i = 0; i < 8; i++) {
+            Vec3d corner = corners[i];
+            // Поворот вокруг Y оси (yaw)
+            double newX = corner.x * cos - corner.z * sin;
+            double newZ = corner.x * sin + corner.z * cos;
+            rotatedCorners[i] = new Vec3d(newX, corner.y, newZ).add(center);
+        }
+        
+        // Находим минимальные и максимальные координаты
+        double minX = rotatedCorners[0].x;
+        double minY = rotatedCorners[0].y;
+        double minZ = rotatedCorners[0].z;
+        double maxX = rotatedCorners[0].x;
+        double maxY = rotatedCorners[0].y;
+        double maxZ = rotatedCorners[0].z;
+        
+        for (Vec3d corner : rotatedCorners) {
+            minX = Math.min(minX, corner.x);
+            minY = Math.min(minY, corner.y);
+            minZ = Math.min(minZ, corner.z);
+            maxX = Math.max(maxX, corner.x);
+            maxY = Math.max(maxY, corner.y);
+            maxZ = Math.max(maxZ, corner.z);
+        }
+        
+        return new Box(minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
 }

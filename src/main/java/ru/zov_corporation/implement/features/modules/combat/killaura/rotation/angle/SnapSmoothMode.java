@@ -1,11 +1,13 @@
-package ru.zov_corporation.implement.features.modules.combat.killaura.rotation.angle;
+package ru.zenith.implement.features.modules.combat.killaura.rotation.angle;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import ru.zov_corporation.common.util.math.MathUtil;
-import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.Angle;
-import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.AngleUtil;
+import ru.zenith.common.util.math.MathUtil;
+import ru.zenith.core.Main;
+import ru.zenith.implement.features.modules.combat.Aura;
+import ru.zenith.implement.features.modules.combat.killaura.rotation.Angle;
+import ru.zenith.implement.features.modules.combat.killaura.rotation.AngleUtil;
 
 public class SnapSmoothMode extends AngleSmoothMode {
     public SnapSmoothMode() {

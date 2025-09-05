@@ -1,9 +1,9 @@
 package ru.zov_corporation.common.util.other;
 
 import lombok.experimental.UtilityClass;
-import ru.kotopushka.compiler.sdk.classes.Profile;
 import ru.zov_corporation.api.system.font.Fonts;
 import ru.zov_corporation.common.util.entity.PlayerIntersectionUtil;
+import ru.zov_corporation.core.Main;
 
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -43,11 +43,11 @@ public class StringUtil {
     }
 
     public String getUserRole() {
-        return switch (Profile.getRole()) {
-            case "Разработчик" -> "DEVELOPER";
-            case "Администратор" -> "ADMIN";
-            default -> "USER";
-        };
+        return "DEVELOPER";
+    }
+
+    public String getUserName() {
+        return Main.getInstance().getDiscordManager().getInfo().userName();
     }
 
     public String getDuration(int time) {

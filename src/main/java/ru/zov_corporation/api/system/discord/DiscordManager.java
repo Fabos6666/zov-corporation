@@ -25,12 +25,12 @@ public class DiscordManager implements QuickImports {
             DiscordRichPresence richPresence = new DiscordRichPresence.Builder()
                     .setStartTimestamp(System.currentTimeMillis() / 1000)
                     .setDetails("Role: " + StringUtil.getUserRole())
-                    .setLargeImage("https://s14.gifyu.com/images/bKm4m.jpg", "UID: " + Profile.getUid())
-                    .setButtons(RPCButton.create("Телеграм", "t.me/zovclient"), RPCButton.create("Дискорд", "https://discord.gg/TPdfGKs7B3")).build();
+                    .setLargeImage("https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExM2xzOTZvc3N0NjNnZThyZTJtMHpmdmg5djFsNnJqd2V6cTA1NzVheiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L1aSMzjfTdAybVHoLP/giphy.gif")
+                    .setButtons(RPCButton.create("Телеграм", "https://t.me/zovclient"), RPCButton.create("Дискорд", "https://discord.gg/TPdfGKs7B3")).build();
             DiscordRPC.INSTANCE.Discord_UpdatePresence(richPresence);
         }).build();
 
-        DiscordRPC.INSTANCE.Discord_Initialize("1396101952143757353", handlers, true, "");
+        DiscordRPC.INSTANCE.Discord_Initialize("1413479021303566438", handlers, true, "");
         discordDaemonThread.start();
     }
 

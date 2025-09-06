@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import ru.zov_corporation.implement.features.modules.combat.*;
 import ru.zov_corporation.implement.features.modules.misc.*;
+import ru.zov_corporation.implement.features.modules.misc.BaseFinder;
 import ru.zov_corporation.implement.features.modules.movement.*;
 import ru.zov_corporation.implement.features.modules.player.*;
 import ru.zov_corporation.implement.features.modules.render.*;
@@ -72,7 +73,8 @@ public class ModuleRepository {
                 new FireWorkBooster(),
                 new Spider(),
                 new ServerRPSpoofer(),
-                new FakeLag()
+                new FakeLag(),
+                new BaseFinder()
         );
     }
 

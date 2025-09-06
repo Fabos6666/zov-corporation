@@ -70,18 +70,16 @@ public class EntityESP extends Module {
     public MultiSelectSetting entityType = new MultiSelectSetting("Entity Type", "Entity that will be displayed")
             .value("Player", "Item", "TNT");
     MultiSelectSetting playerSetting = new MultiSelectSetting("Player Settings", "Settings for players")
-            .value("Box", "Armor", "Enchants", "NameTags", "Hand Items", "3D Box").visible(() -> entityType.isSelected("Player"));
+            .value("Box", "Armor", "Enchants", "NameTags", "Hand Items").visible(() -> entityType.isSelected("Player"));
     public SelectSetting boxType = new SelectSetting("Box Type", "Type of Box")
-            .value("Corner", "Full").visible(() -> playerSetting.isSelected("Box"));
-    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(() -> playerSetting.isSelected("3D Box"));
+            .value("Corner", "Full", "3D Box").visible(() -> playerSetting.isSelected("Box"));
+    public BooleanSetting flatBoxOutline = new BooleanSetting("Outline", "Outline for flat boxes").visible(() -> playerSetting.isSelected("Box") && (boxType.isSelected("Corner") || boxType.isSelected("Full")));
     public ValueSetting boxAlpha = new ValueSetting("Alpha", "Box transparency")
-            .setValue(1.0F).range(0.1F, 1.0F).visible(() -> playerSetting.isSelected("3D Box"));
-    public BooleanSetting rotateWithPlayer = new BooleanSetting("Rotate With Player", "Rotate box with player's facing direction")
-            .setValue(false).visible(() -> playerSetting.isSelected("3D Box"));
+            .setValue(1.0F).range(0.1F, 1.0F).visible(() -> boxType.isSelected("3D Box"));
 
     public EntityESP() {
         super("EntityESP", "Entity ESP", ModuleCategory.RENDER);
-        setup(sizeSetting, entityType, playerSetting, boxType, boxOutline, boxAlpha, rotateWithPlayer);
+        setup(sizeSetting, entityType, playerSetting, boxType, flatBoxOutline, boxAlpha);
         encMap.put(Enchantments.BLAST_PROTECTION, "B");
         encMap.put(Enchantments.PROTECTION, "P");
         encMap.put(Enchantments.SHARPNESS, "S");
@@ -120,7 +118,6 @@ public class EntityESP extends Module {
             double interpX = MathHelper.lerp(tickDelta, player.prevX, player.getX());
             double interpY = MathHelper.lerp(tickDelta, player.prevY, player.getY());
             double interpZ = MathHelper.lerp(tickDelta, player.prevZ, player.getZ());
-            float interpYaw = MathHelper.lerpAngleDegrees(tickDelta, player.prevYaw, player.getYaw());
             Vec3d interpCenter = new Vec3d(interpX, interpY, interpZ);
             float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(interpCenter);
             if (distance < 1) continue;
@@ -130,15 +127,10 @@ public class EntityESP extends Module {
             int fillColor = (baseColor & 0x00FFFFFF) | (alpha << 24);
             int outlineColor = baseColor | 0xFF000000;
 
-            if (playerSetting.isSelected("3D Box")) {
+            if (boxType.isSelected("3D Box")) {
                 Box interpBox = player.getDimensions(player.getPose()).getBoxAt(interpX, interpY, interpZ);
-                Box boxToRender = interpBox;
-                if (rotateWithPlayer.isValue()) {
-                    Vec3d center = interpBox.getCenter();
-                    boxToRender = createRotatedBox(interpBox, center, interpYaw);
-                }
-                Render3DUtil.drawBox(boxToRender, fillColor, 2, true, true, true); // Fill with alpha
-                Render3DUtil.drawBox(boxToRender, outlineColor, 2); // Outline without alpha
+                Render3DUtil.drawBox(interpBox, fillColor, 2, true, true, true); // Fill with through walls by default
+                Render3DUtil.drawBox(interpBox, outlineColor, 2, true, true, true); // Outline with through walls by default
             }
             
         }
@@ -206,7 +198,7 @@ public class EntityESP extends Module {
     }
 
     private void drawBox(boolean friend, Vector4d vec, PlayerEntity player) {
-        if (playerSetting.isSelected("3D Box")) {
+        if (boxType.isSelected("3D Box")) {
             return;
         }
         int client = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
@@ -225,7 +217,7 @@ public class EntityESP extends Module {
             Render2DUtil.drawQuad(endPosX + 0.5F, posY, 0.5F, size + 0.5F, client);
             Render2DUtil.drawQuad(endPosX + 0.5F, endPosY - size - 0.5F, 0.5F, size, client);
             Render2DUtil.drawQuad(endPosX - size + 1, endPosY - 0.5F, size, 0.5F, client);
-            if (boxOutline.isValue()) {
+            if (flatBoxOutline.isValue()) {
                 Render2DUtil.drawQuad(posX - 1F, posY - 1, size + 1, 1.5F, black);
                 Render2DUtil.drawQuad(posX - 1F, posY + 0.5F, 1.5F, size + 0.5F, black);
                 Render2DUtil.drawQuad(posX - 1F, endPosY - size - 1, 1.5F, size, black);
@@ -236,7 +228,7 @@ public class EntityESP extends Module {
                 Render2DUtil.drawQuad(endPosX - size + 0.5F, endPosY - 1, size + 1, 1.5F, black);
             }
         } else if (boxType.isSelected("Full")) {
-            if (boxOutline.isValue()) {
+            if (flatBoxOutline.isValue()) {
                 Render2DUtil.drawQuad(posX - 1F, posY - 1F, endPosX - posX + 2F, 1.5F, black);
                 Render2DUtil.drawQuad(posX - 1F, posY - 1F, 1.5F, endPosY - posY + 2F, black);
                 Render2DUtil.drawQuad(posX - 1F, endPosY - 1F, endPosX - posX + 2F, 1.5F, black);
@@ -366,51 +358,7 @@ public class EntityESP extends Module {
         return "";
     }
 
-    private void drawRotatedBox(MatrixStack matrixStack, Box box, int color, float yaw) {
-        Vec3d center = box.getCenter();
-        Box rotatedBox = createRotatedBox(box, center, yaw);
-        Render3DUtil.drawBox(rotatedBox, color, 2, true, true, true); // Ensure rendering through walls
-    }
 
-    private Box createRotatedBox(Box originalBox, Vec3d center, float yaw) {
-        double radians = Math.toRadians(yaw);
-        double cos = Math.cos(radians);
-        double sin = Math.sin(radians);
-        double halfWidth = (originalBox.maxX - originalBox.minX) / 2.0;
-        double halfHeight = (originalBox.maxY - originalBox.minY) / 2.0;
-        double halfDepth = (originalBox.maxZ - originalBox.minZ) / 2.0;
-        Vec3d[] corners = {
-                new Vec3d(-halfWidth, -halfHeight, -halfDepth),
-                new Vec3d(halfWidth, -halfHeight, -halfDepth),
-                new Vec3d(halfWidth, -halfHeight, halfDepth),
-                new Vec3d(-halfWidth, -halfHeight, halfDepth),
-                new Vec3d(-halfWidth, halfHeight, -halfDepth),
-                new Vec3d(halfWidth, halfHeight, -halfDepth),
-                new Vec3d(halfWidth, halfHeight, halfDepth),
-                new Vec3d(-halfWidth, halfHeight, halfDepth)
-        };
-        Vec3d[] rotatedCorners = new Vec3d[8];
-        for (int i = 0; i < 8; i++) {
-            Vec3d corner = corners[i];
-            double newX = corner.x * cos - corner.z * sin;
-            double newZ = corner.x * sin + corner.z * cos;
-            rotatedCorners[i] = new Vec3d(newX, corner.y, newZ).add(center);
-        }
-        double minX = rotatedCorners[0].x;
-        double minY = rotatedCorners[0].y;
-        double minZ = rotatedCorners[0].z;
-        double maxX = rotatedCorners[0].x;
-        double maxY = rotatedCorners[0].y;
-        double maxZ = rotatedCorners[0].z;
-        for (Vec3d corner : rotatedCorners) {
-            minX = Math.min(minX, corner.x);
-            minY = Math.min(minY, corner.y);
-            minZ = Math.min(minZ, corner.z);
-            maxX = Math.max(maxX, corner.x);
-            maxY = Math.max(maxY, corner.y);
-            maxZ = Math.max(maxZ, corner.z);
-        }
-        return new Box(minX, minY, minZ, maxX, maxY, maxZ);
-    }
+
 
 }

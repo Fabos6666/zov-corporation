@@ -47,7 +47,7 @@ public class CheckComponent extends AbstractComponent {
                 .round(1.5F).thickness(2).softness(0.5F).outlineColor(outlineStateColor).color(MathUtil.applyOpacity(stateColor, opacity)).build());
 
         ScissorManager scissor = Main.getInstance().getScissorManager();
-        scissor.push(matrix.peek().getPositionMatrix(), x, (float) window.getScaledHeight() / 2 - 96, stencilAnimation.getOutput().intValue(), 220);
+        scissor.push(matrix.peek().getPositionMatrix(), x, y, stencilAnimation.getOutput().intValue(), 8);
 
         image.setTexture("textures/check.png").render(ShapeProperties.create(matrix, x + 2, y + 2.5, 4, 3).color(MathUtil.applyOpacity(0xFFFFFFFF, opacity)).build());
 

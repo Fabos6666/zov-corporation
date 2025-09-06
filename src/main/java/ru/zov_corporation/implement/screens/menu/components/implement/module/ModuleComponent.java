@@ -3,7 +3,6 @@ package ru.zov_corporation.implement.screens.menu.components.implement.module;
 import lombok.Getter;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.math.ColorHelper;
-import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 import ru.zov_corporation.api.feature.module.Module;
 import ru.zov_corporation.api.feature.module.setting.SettingComponentAdder;
@@ -12,8 +11,6 @@ import ru.zov_corporation.api.system.shape.ShapeProperties;
 import ru.zov_corporation.common.util.color.ColorUtil;
 import ru.zov_corporation.common.util.math.MathUtil;
 import ru.zov_corporation.common.util.other.StringUtil;
-import ru.zov_corporation.common.util.render.ScissorManager;
-import ru.zov_corporation.core.Main;
 import ru.zov_corporation.implement.screens.menu.components.AbstractComponent;
 import ru.zov_corporation.implement.screens.menu.components.implement.other.CheckComponent;
 import ru.zov_corporation.implement.screens.menu.components.implement.settings.AbstractSettingComponent;
@@ -46,14 +43,13 @@ public class ModuleComponent extends AbstractComponent {
         initialize();
     }
 
-    
+
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, 18)
                 .round(5, 0, 5, 0).color(ColorUtil.getGuiRectColor2(1)).build());
 
-        height = getComponentHeight();
-        rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, height)
+        rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, height = getComponentHeight())
                 .round(5).softness(1).thickness(2.2F).outlineColor(0x902d2e41).color(0x002d2e41).build());
 
         Fonts.getSize(14, BOLD).drawString(context.getMatrices(), module.getVisibleName(), x + 10, y + 8, 0xFFD4D6E1);
@@ -65,24 +61,6 @@ public class ModuleComponent extends AbstractComponent {
 
         drawBind(context);
 
-        // Calculate total height of all settings
-        float totalSettingsHeight = 0;
-        for (AbstractSettingComponent component : components) {
-            Supplier<Boolean> visible = component.getSetting().getVisible();
-            if (visible != null && !visible.get()) {
-                continue;
-            }
-            totalSettingsHeight += component.height;
-        }
-
-        // Only apply scrolling if settings exceed available space
-        boolean needsScrolling = totalSettingsHeight > (height - 46);
-        
-        if (needsScrolling) {
-            ScissorManager scissorManager = Main.getInstance().getScissorManager();
-            scissorManager.push(context.getMatrices().peek().getPositionMatrix(), x, y + 42, width, height - 46);
-        }
-
         float offset = y + 42;
         for (int i = components.size() - 1; i >= 0; i--) {
             AbstractSettingComponent component = components.get(i);
@@ -93,25 +71,12 @@ public class ModuleComponent extends AbstractComponent {
             }
 
             component.x = x;
-            component.y = offset + (float) smoothedScroll;
+            component.y = offset + (getComponentHeight() - 46 - component.height);
             component.width = width;
 
-            // Only render if component is visible within the module bounds
-            if (component.y > y - component.height && y + height + 5 > component.y) {
-                component.render(context, mouseX, mouseY, delta);
-            }
+            component.render(context, mouseX, mouseY, delta);
 
-            offset += component.height;
-        }
-        
-        if (needsScrolling) {
-            ScissorManager scissorManager = Main.getInstance().getScissorManager();
-            scissorManager.pop();
-            
-            // Calculate max scroll based on total height of settings
-            int maxScroll = Math.max(0, (int) (totalSettingsHeight - (height - 46)));
-            scroll = MathHelper.clamp(scroll, -maxScroll, 0);
-            smoothedScroll = MathUtil.interpolateSmooth(2, smoothedScroll, scroll);
+            offset -= component.height;
         }
     }
 
@@ -142,7 +107,7 @@ public class ModuleComponent extends AbstractComponent {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    
+
     @Override
     public boolean isHover(double mouseX, double mouseY) {
         for (AbstractComponent abstractComponent : components) {
@@ -153,62 +118,32 @@ public class ModuleComponent extends AbstractComponent {
         return MathUtil.isHovered(mouseX, mouseY, x, y, width, height);
     }
 
-    
+
     @Override
     public void tick() {
         components.forEach(AbstractComponent::tick);
         super.tick();
     }
 
-    
+
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         components.forEach(abstractComponent -> abstractComponent.mouseDragged(mouseX, mouseY, button, deltaX, deltaY));
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
-    
+
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         components.forEach(abstractComponent -> abstractComponent.mouseReleased(mouseX, mouseY, button));
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        // Check if mouse is over the module area
-        boolean isOverModule = MathUtil.isHovered(mouseX, mouseY, x, y, width, height);
-        
-        if (isOverModule) {
-            // Calculate total height of all settings
-            float totalSettingsHeight = 0;
-            for (AbstractSettingComponent component : components) {
-                Supplier<Boolean> visible = component.getSetting().getVisible();
-                if (visible != null && !visible.get()) {
-                    continue;
-                }
-                totalSettingsHeight += component.height;
-            }
-            
-            // Only handle scrolling if settings exceed available space
-            boolean needsScrolling = totalSettingsHeight > (height - 46);
-            
-            if (needsScrolling) {
-                scroll += amount * 20;
-                return true; // Indicate that we handled the scroll event
-            }
-        }
-        
-        // Pass scroll event to child components
-        boolean childHandledScroll = false;
-        for (AbstractSettingComponent component : components) {
-            if (component.mouseScrolled(mouseX, mouseY, amount)) {
-                childHandledScroll = true;
-            }
-        }
-        
-        return childHandledScroll;
+        components.forEach(abstractComponent -> abstractComponent.mouseScrolled(mouseX, mouseY, amount));
+        return super.mouseScrolled(mouseX, mouseY, amount);
     }
 
     @Override
@@ -222,14 +157,14 @@ public class ModuleComponent extends AbstractComponent {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    
+
     @Override
     public boolean charTyped(char chr, int modifiers) {
         components.forEach(abstractComponent -> abstractComponent.charTyped(chr, modifiers));
         return super.charTyped(chr, modifiers);
     }
 
-    
+
     public int getComponentHeight() {
         float offsetY = 0;
         for (AbstractSettingComponent component : components) {
@@ -241,13 +176,10 @@ public class ModuleComponent extends AbstractComponent {
 
             offsetY += component.height;
         }
-        // Limit height to prevent modules from becoming too tall
-        int maxSettingsHeight = 300; // Maximum height for settings
-        int calculatedHeight = (int) (offsetY + 46);
-        return Math.min(calculatedHeight, maxSettingsHeight);
+        return (int) (offsetY + 46);
     }
 
-    
+
     private void drawBind(DrawContext context) {
         String bindName = StringUtil.getBindName(module.getKey());
         String name = binding ? "(" + bindName + ") ..." : bindName;
@@ -260,7 +192,7 @@ public class ModuleComponent extends AbstractComponent {
         Fonts.getSize(12, BOLD).drawString(context.getMatrices(), name, x + width - 12 - stringWidth, y + 8, bindingColor);
     }
 
-    
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -269,7 +201,7 @@ public class ModuleComponent extends AbstractComponent {
         return module.equals(that.module);
     }
 
-    
+
     @Override
     public int hashCode() {
         return Objects.hash(module);

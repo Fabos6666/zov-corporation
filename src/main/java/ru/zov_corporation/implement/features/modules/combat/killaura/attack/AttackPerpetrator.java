@@ -39,7 +39,7 @@ public class AttackPerpetrator implements QuickImports {
         LivingEntity target;
         Angle angle;
         float maximumRange;
-        boolean onlyCritical, shouldBreakShield, shouldUnPressShield, useDynamicCooldown, eatAndAttack;
+        boolean onlyCritical, shouldBreakShield, shouldUnPressShield, useDynamicCooldown, eatAndAttack, smartCrits;
         Box box;
         SelectSetting aimMode;
 
@@ -52,6 +52,7 @@ public class AttackPerpetrator implements QuickImports {
             this.shouldUnPressShield = options.contains("UnPress Shield");
             this.useDynamicCooldown = options.contains("Dynamic Cooldown");
             this.eatAndAttack = options.contains("No Attack When Eat");
+            this.smartCrits = options.contains("Smart Crits");
             this.box = box;
             this.aimMode = aimMode;
         }

@@ -43,7 +43,7 @@ public class ModuleComponent extends AbstractComponent {
         initialize();
     }
 
-
+    
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, 18)
@@ -107,7 +107,7 @@ public class ModuleComponent extends AbstractComponent {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-
+    
     @Override
     public boolean isHover(double mouseX, double mouseY) {
         for (AbstractComponent abstractComponent : components) {
@@ -118,28 +118,28 @@ public class ModuleComponent extends AbstractComponent {
         return MathUtil.isHovered(mouseX, mouseY, x, y, width, height);
     }
 
-
+    
     @Override
     public void tick() {
         components.forEach(AbstractComponent::tick);
         super.tick();
     }
 
-
+    
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         components.forEach(abstractComponent -> abstractComponent.mouseDragged(mouseX, mouseY, button, deltaX, deltaY));
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
-
+    
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         components.forEach(abstractComponent -> abstractComponent.mouseReleased(mouseX, mouseY, button));
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-
+    
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         components.forEach(abstractComponent -> abstractComponent.mouseScrolled(mouseX, mouseY, amount));
@@ -157,14 +157,14 @@ public class ModuleComponent extends AbstractComponent {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-
+    
     @Override
     public boolean charTyped(char chr, int modifiers) {
         components.forEach(abstractComponent -> abstractComponent.charTyped(chr, modifiers));
         return super.charTyped(chr, modifiers);
     }
 
-
+    
     public int getComponentHeight() {
         float offsetY = 0;
         for (AbstractSettingComponent component : components) {
@@ -179,7 +179,7 @@ public class ModuleComponent extends AbstractComponent {
         return (int) (offsetY + 46);
     }
 
-
+    
     private void drawBind(DrawContext context) {
         String bindName = StringUtil.getBindName(module.getKey());
         String name = binding ? "(" + bindName + ") ..." : bindName;
@@ -192,7 +192,7 @@ public class ModuleComponent extends AbstractComponent {
         Fonts.getSize(12, BOLD).drawString(context.getMatrices(), name, x + width - 12 - stringWidth, y + 8, bindingColor);
     }
 
-
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -201,7 +201,7 @@ public class ModuleComponent extends AbstractComponent {
         return module.equals(that.module);
     }
 
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(module);

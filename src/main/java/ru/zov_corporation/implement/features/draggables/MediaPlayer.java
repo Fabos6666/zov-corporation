@@ -23,7 +23,6 @@ import ru.zov_corporation.common.util.render.ScissorManager;
 import ru.zov_corporation.core.Main;
 import ru.zov_corporation.implement.features.modules.render.Hud;
 
-
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
@@ -43,8 +42,6 @@ public class MediaPlayer extends AbstractDraggable {
 
     public MediaPlayer() {
         super("Media Player", 10, 400, 100, 40,true);
-        mediaInfo.reset();
-
     }
 
     @Override

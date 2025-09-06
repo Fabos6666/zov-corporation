@@ -16,6 +16,10 @@ import ru.zov_corporation.api.feature.command.helpers.Paginator;
 import ru.zov_corporation.api.feature.command.helpers.TabCompleteHelper;
 import ru.zov_corporation.api.file.FileController;
 import ru.zov_corporation.api.file.exception.FileProcessingException;
+import ru.zov_corporation.api.feature.module.Module;
+import ru.zov_corporation.api.feature.module.setting.Setting;
+import ru.zov_corporation.api.feature.module.setting.implement.*;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,17 +35,26 @@ import static ru.zov_corporation.api.feature.command.IBaritoneChatControl.FORCE_
 public class ConfigCommand extends Command {
     FileController fileController;
     ClientInfoProvider clientInfoProvider;
+    Main main;
 
     protected ConfigCommand(Main main) {
         super("config", "cfg");
         this.fileController = main.getFileController();
         this.clientInfoProvider = main.getClientInfoProvider();
+        this.main = main;
     }
 
     @Override
     public void execute(String label, IArgConsumer args) throws CommandException {
         String arg = args.hasAny() ? args.getString().toLowerCase(Locale.US) : "list";
         args.requireMax(1);
+        
+        if (arg.contains("reset")) {
+            // Сразу сбрасываем все модули и настройки
+            resetAllToDefaults();
+            logDirect("Все модули и настройки сброшены к значениям по умолчанию!", Formatting.GREEN);
+            return;
+        }
         if (arg.contains("load")) {
             String name = args.getString();
             if (new File(clientInfoProvider.configsDir(), name + ".json").exists()) {
@@ -87,7 +100,7 @@ public class ConfigCommand extends Command {
         }
         if (arg.contains("dir")) {
             try {
-                Runtime.getRuntime().exec("explorer " + clientInfoProvider.configsDir().getAbsolutePath());
+                new ProcessBuilder("explorer", clientInfoProvider.configsDir().getAbsolutePath()).start();
             } catch (IOException e) {
                 logDirect("Папка с конфигурациями не найдена!" + e.getMessage());
             }
@@ -107,7 +120,7 @@ public class ConfigCommand extends Command {
             } else {
                 return new TabCompleteHelper()
                         .sortAlphabetically()
-                        .prepend("load", "save", "list", "dir")
+                        .prepend("load", "save", "list", "dir", "reset")
                         .filterPrefix(arg)
                         .stream();
             }
@@ -124,13 +137,14 @@ public class ConfigCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "С помощью этой команды можно загружать/сохранять конфиги",
+                "С помощью этой команды можно загружать/сохранять конфиги и сбрасывать настройки",
                 "",
                 "Использование:",
                 "> config load <name> - Загружает конфиг.",
                 "> config save <name> - Сохраняет конфиг.",
                 "> config list - Возвращает список конфигов",
-                "> config dir - Открывает папку с конфигами."
+                "> config dir - Открывает папку с конфигами.",
+                "> config reset - Сбрасывает все модули и настройки к значениям по умолчанию"
         );
     }
     
@@ -148,5 +162,52 @@ public class ConfigCommand extends Command {
         }
 
         return configs;
+    }
+    
+    /**
+     * Сбрасывает все модули и настройки к значениям по умолчанию
+     */
+    private void resetAllToDefaults() {
+        // Отключаем все модули
+        for (Module module : main.getModuleRepository().modules()) {
+            module.setState(false);
+            module.setKey(GLFW.GLFW_KEY_UNKNOWN);
+            module.setType(1);
+        }
+        
+        // Сбрасываем все настройки к значениям по умолчанию
+        for (Module module : main.getModuleRepository().modules()) {
+            for (Setting setting : module.settings()) {
+                resetSettingToDefault(setting);
+            }
+        }
+    }
+    
+    /**
+     * Сбрасывает настройку к значению по умолчанию
+     */
+    private void resetSettingToDefault(Setting setting) {
+        if (setting instanceof BooleanSetting booleanSetting) {
+            booleanSetting.setValue(false);
+        } else if (setting instanceof ValueSetting valueSetting) {
+            valueSetting.setValue(valueSetting.getMin());
+        } else if (setting instanceof ColorSetting colorSetting) {
+            colorSetting.setColor(0xFFFFFFFF); // Белый цвет по умолчанию
+        } else if (setting instanceof BindSetting bindSetting) {
+            bindSetting.setKey(GLFW.GLFW_KEY_UNKNOWN);
+        } else if (setting instanceof TextSetting textSetting) {
+            textSetting.setText("");
+        } else if (setting instanceof SelectSetting selectSetting) {
+            if (!selectSetting.getList().isEmpty()) {
+                selectSetting.setSelected(selectSetting.getList().get(0));
+            }
+        } else if (setting instanceof MultiSelectSetting multiSelectSetting) {
+            multiSelectSetting.setSelected(new ArrayList<>());
+        } else if (setting instanceof GroupSetting groupSetting) {
+            groupSetting.setValue(false);
+            for (Setting subSetting : groupSetting.getSubSettings()) {
+                resetSettingToDefault(subSetting);
+            }
+        }
     }
 }

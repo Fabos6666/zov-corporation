@@ -11,7 +11,8 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.AxeItem;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.*;
+import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.Hand;
 import ru.zov_corporation.api.event.types.EventType;
@@ -24,6 +25,7 @@ import ru.zov_corporation.implement.events.item.UsingItemEvent;
 import ru.zov_corporation.implement.events.packet.PacketEvent;
 import ru.zov_corporation.implement.features.modules.combat.Criticals;
 import ru.zov_corporation.implement.features.modules.combat.killaura.rotation.*;
+import ru.zov_corporation.implement.features.modules.combat.Aura;
 import ru.zov_corporation.implement.features.modules.movement.AutoSprint;
 
 @Setter
@@ -32,6 +34,7 @@ import ru.zov_corporation.implement.features.modules.movement.AutoSprint;
 public class AttackHandler implements QuickImports {
     private final StopWatch attackTimer = new StopWatch(), shieldWatch = new StopWatch();
     private final ClickScheduler clickScheduler = new ClickScheduler();
+    private final StopWatch legitSprintTimer = new StopWatch();
     private int count = 0;
 
     void tick() {}
@@ -62,17 +65,50 @@ public class AttackHandler implements QuickImports {
             shieldWatch.reset();
         }
 
-        if (!mc.player.isSwimming()) {
-            AutoSprint.getInstance().tickStop = MathUtil.getRandom(1, 2);
-            mc.player.setSprinting(false);
+        if (!mc.player.isSwimming() && Aura.getInstance().getSprintReset().isValue()) {
+            String sprintResetMode = Aura.getInstance().getSprintResetMode().getSelected();
+            boolean wasSprinting = mc.player.isSprinting();
+            if (wasSprinting) {
+                switch (sprintResetMode) {
+                    case "Client":
+                        AutoSprint.getInstance().tickStop = MathUtil.getRandom(1, 2);
+                        mc.player.setSprinting(false);
+                        break;
+                    case "Normal":
+                        mc.player.setSprinting(false);
+                        break;
+                    case "Legit":
+                        mc.player.setSprinting(false);
+                        legitSprintTimer.reset();
+                        break;
+                }
+            }
         }
     }
 
     void attackEntity(AttackPerpetrator.AttackPerpetratorConfigurable config) {
+        boolean wasSprinting = mc.player.isSprinting();
         attack(config);
         breakShield(config);
         attackTimer.reset();
         count++;
+
+        if (!mc.player.isSwimming() && Aura.getInstance().getSprintReset().isValue()) {
+            String sprintResetMode = Aura.getInstance().getSprintResetMode().getSelected();
+            if (wasSprinting) {
+                switch (sprintResetMode) {
+                    case "Normal":
+                        mc.player.setSprinting(true);
+                        break;
+                    case "Legit":
+                        if (legitSprintTimer.finished(MathUtil.getRandom(50, 150))) {
+                            mc.player.setSprinting(true);
+                        }
+                        break;
+
+                }
+            }
+        }
     }
 
     private void breakShield(AttackPerpetrator.AttackPerpetratorConfigurable config) {
@@ -101,7 +137,7 @@ public class AttackHandler implements QuickImports {
     }
 
     public boolean canAttack(AttackPerpetrator.AttackPerpetratorConfigurable config, int ticks) {
-        for (int i = 0;i <= ticks;i++) {
+        for (int i = 0; i <= ticks; i++) {
             if (canCrit(config, i)) {
                 return true;
             }
@@ -119,10 +155,18 @@ public class AttackHandler implements QuickImports {
         }
 
         SimulatedPlayer simulated = SimulatedPlayer.simulateLocalPlayer(ticks);
+        boolean noRestrict = !hasMovementRestrictions(simulated);
+        boolean critState = isPlayerInCriticalState(simulated, ticks);
+        if (config.isSmartCrits()) {
+            if (noRestrict) {
+                return critState || simulated.onGround;
+            } else {
+                return true;
+            }
+        }
         if (config.isOnlyCritical() && !hasMovementRestrictions(simulated)) {
             return isPlayerInCriticalState(simulated, ticks);
         }
-
         return true;
     }
 

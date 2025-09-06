@@ -3,6 +3,7 @@ package ru.zov_corporation.implement.screens.menu.components.implement.module;
 import lombok.Getter;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.math.ColorHelper;
+import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 import ru.zov_corporation.api.feature.module.Module;
 import ru.zov_corporation.api.feature.module.setting.SettingComponentAdder;
@@ -11,6 +12,8 @@ import ru.zov_corporation.api.system.shape.ShapeProperties;
 import ru.zov_corporation.common.util.color.ColorUtil;
 import ru.zov_corporation.common.util.math.MathUtil;
 import ru.zov_corporation.common.util.other.StringUtil;
+import ru.zov_corporation.common.util.render.ScissorManager;
+import ru.zov_corporation.core.Main;
 import ru.zov_corporation.implement.screens.menu.components.AbstractComponent;
 import ru.zov_corporation.implement.screens.menu.components.implement.other.CheckComponent;
 import ru.zov_corporation.implement.screens.menu.components.implement.settings.AbstractSettingComponent;
@@ -49,7 +52,8 @@ public class ModuleComponent extends AbstractComponent {
         rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, 18)
                 .round(5, 0, 5, 0).color(ColorUtil.getGuiRectColor2(1)).build());
 
-        rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, height = getComponentHeight())
+        height = getComponentHeight();
+        rectangle.render(ShapeProperties.create(context.getMatrices(), x, y, width, height)
                 .round(5).softness(1).thickness(2.2F).outlineColor(0x902d2e41).color(0x002d2e41).build());
 
         Fonts.getSize(14, BOLD).drawString(context.getMatrices(), module.getVisibleName(), x + 10, y + 8, 0xFFD4D6E1);
@@ -61,6 +65,24 @@ public class ModuleComponent extends AbstractComponent {
 
         drawBind(context);
 
+        // Calculate total height of all settings
+        float totalSettingsHeight = 0;
+        for (AbstractSettingComponent component : components) {
+            Supplier<Boolean> visible = component.getSetting().getVisible();
+            if (visible != null && !visible.get()) {
+                continue;
+            }
+            totalSettingsHeight += component.height;
+        }
+
+        // Only apply scrolling if settings exceed available space
+        boolean needsScrolling = totalSettingsHeight > (height - 46);
+        
+        if (needsScrolling) {
+            ScissorManager scissorManager = Main.getInstance().getScissorManager();
+            scissorManager.push(context.getMatrices().peek().getPositionMatrix(), x, y + 42, width, height - 46);
+        }
+
         float offset = y + 42;
         for (int i = components.size() - 1; i >= 0; i--) {
             AbstractSettingComponent component = components.get(i);
@@ -71,12 +93,25 @@ public class ModuleComponent extends AbstractComponent {
             }
 
             component.x = x;
-            component.y = offset + (getComponentHeight() - 46 - component.height);
+            component.y = offset + (float) smoothedScroll;
             component.width = width;
 
-            component.render(context, mouseX, mouseY, delta);
+            // Only render if component is visible within the module bounds
+            if (component.y > y - component.height && y + height + 5 > component.y) {
+                component.render(context, mouseX, mouseY, delta);
+            }
 
-            offset -= component.height;
+            offset += component.height;
+        }
+        
+        if (needsScrolling) {
+            ScissorManager scissorManager = Main.getInstance().getScissorManager();
+            scissorManager.pop();
+            
+            // Calculate max scroll based on total height of settings
+            int maxScroll = Math.max(0, (int) (totalSettingsHeight - (height - 46)));
+            scroll = MathHelper.clamp(scroll, -maxScroll, 0);
+            smoothedScroll = MathUtil.interpolateSmooth(2, smoothedScroll, scroll);
         }
     }
 
@@ -142,8 +177,38 @@ public class ModuleComponent extends AbstractComponent {
     
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        components.forEach(abstractComponent -> abstractComponent.mouseScrolled(mouseX, mouseY, amount));
-        return super.mouseScrolled(mouseX, mouseY, amount);
+        // Check if mouse is over the module area
+        boolean isOverModule = MathUtil.isHovered(mouseX, mouseY, x, y, width, height);
+        
+        if (isOverModule) {
+            // Calculate total height of all settings
+            float totalSettingsHeight = 0;
+            for (AbstractSettingComponent component : components) {
+                Supplier<Boolean> visible = component.getSetting().getVisible();
+                if (visible != null && !visible.get()) {
+                    continue;
+                }
+                totalSettingsHeight += component.height;
+            }
+            
+            // Only handle scrolling if settings exceed available space
+            boolean needsScrolling = totalSettingsHeight > (height - 46);
+            
+            if (needsScrolling) {
+                scroll += amount * 20;
+                return true; // Indicate that we handled the scroll event
+            }
+        }
+        
+        // Pass scroll event to child components
+        boolean childHandledScroll = false;
+        for (AbstractSettingComponent component : components) {
+            if (component.mouseScrolled(mouseX, mouseY, amount)) {
+                childHandledScroll = true;
+            }
+        }
+        
+        return childHandledScroll;
     }
 
     @Override
@@ -176,7 +241,10 @@ public class ModuleComponent extends AbstractComponent {
 
             offsetY += component.height;
         }
-        return (int) (offsetY + 46);
+        // Limit height to prevent modules from becoming too tall
+        int maxSettingsHeight = 300; // Maximum height for settings
+        int calculatedHeight = (int) (offsetY + 46);
+        return Math.min(calculatedHeight, maxSettingsHeight);
     }
 
     

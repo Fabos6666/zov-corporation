@@ -65,11 +65,11 @@ public class GroupWindow extends AbstractWindow {
             }
 
             component.x = x;
-            component.y = (float) (y + 19 + offset + (getComponentHeight() - 25 - component.height) + smoothedScroll);
+            component.y = (float) (y + 19 + offset + smoothedScroll);
             component.width = width;
             component.render(context, mouseX, mouseY, delta);
 
-            offset -= component.height;
+            offset += component.height;
             totalHeight += (int) component.height;
         }
         if (isLimitedHeight) scissorManager.pop();

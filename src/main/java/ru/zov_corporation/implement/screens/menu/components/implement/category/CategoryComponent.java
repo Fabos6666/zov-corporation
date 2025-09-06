@@ -141,16 +141,23 @@ public class CategoryComponent extends AbstractComponent {
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         MenuScreen menuScreen = MenuScreen.INSTANCE;
         float offsetX = 84, offsetY = 29;
-        if (MathUtil.isHovered(mouseX, mouseY, menuScreen.x + offsetX, menuScreen.y + offsetY, menuScreen.width - offsetX, menuScreen.height - offsetY)) {
-            scroll += amount * 20;
-        }
-
-        moduleComponents.forEach(moduleComponent -> {
-            if (shouldRenderComponent(moduleComponent)) {
-                moduleComponent.mouseScrolled(mouseX, mouseY, amount);
+        
+        // First check if any module component handles the scroll event
+        boolean moduleHandledScroll = false;
+        for (ModuleComponent moduleComponent : moduleComponents) {
+            if (shouldRenderComponent(moduleComponent) && moduleComponent.mouseScrolled(mouseX, mouseY, amount)) {
+                moduleHandledScroll = true;
+                break; // Stop processing if a module handled the scroll
             }
-        });
-        return super.mouseScrolled(mouseX, mouseY, amount);
+        }
+        
+        // Only handle category-level scrolling if no module handled it
+        if (!moduleHandledScroll && MathUtil.isHovered(mouseX, mouseY, menuScreen.x + offsetX, menuScreen.y + offsetY, menuScreen.width - offsetX, menuScreen.height - offsetY)) {
+            scroll += amount * 20;
+            return true;
+        }
+        
+        return moduleHandledScroll || super.mouseScrolled(mouseX, mouseY, amount);
     }
 
 

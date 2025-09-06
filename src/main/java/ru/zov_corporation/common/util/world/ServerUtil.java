@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
 import net.minecraft.scoreboard.*;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.apache.commons.lang3.StringUtils;
 import ru.zov_corporation.common.QuickImports;
@@ -17,6 +16,7 @@ import ru.zov_corporation.implement.events.packet.PacketEvent;
 public class ServerUtil implements QuickImports {
     private final StopWatch pvpWatch = new StopWatch();
     public String server = "Vanilla";
+    public static String selectedServerMode = "aresmine"; // Default selected mode
     public float TPS = 20;
     public long timestamp;
     @Getter
@@ -100,10 +100,14 @@ public class ServerUtil implements QuickImports {
         return mc.world.getRegistryKey().getValue().getPath();
     }
 
-    public boolean isCopyTime() {return server.equals("CopyTime") || server.equals("SpookyTime") || server.equals("FunTime");}
-    public boolean isFunTime() {return server.equals("FunTime");}
-    public boolean isReallyWorld() {return server.equals("ReallyWorld");}
-    public boolean isHolyWorld() {return server.equals("HolyWorld");}
-    public boolean isVanilla() {return server.equals("Vanilla");}
-    public boolean isAresMine() {return server.equals("AresMine");}
+    public boolean isCopyTime() {return selectedServerMode.equals("funtime");}
+    public boolean isFunTime() {return selectedServerMode.equals("funtime");}
+    public boolean isReallyWorld() {return selectedServerMode.equals("reallyworld");}
+    public boolean isHolyWorld() {return selectedServerMode.equals("holyworld");}
+    public boolean isVanilla() {return selectedServerMode.equals("vanilla");}
+    public boolean isAresMine() {return selectedServerMode.equals("aresmine");}
+    
+    public static void setSelectedServerMode(String mode) {
+        selectedServerMode = mode;
+    }
 }

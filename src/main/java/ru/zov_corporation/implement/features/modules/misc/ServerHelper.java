@@ -41,6 +41,8 @@ import ru.zov_corporation.api.feature.module.Module;
 import ru.zov_corporation.api.feature.module.ModuleCategory;
 import ru.zov_corporation.api.feature.module.setting.implement.BindSetting;
 import ru.zov_corporation.api.feature.module.setting.implement.BooleanSetting;
+import ru.zov_corporation.api.feature.module.setting.implement.SelectSetting;
+import ru.zov_corporation.api.feature.module.setting.implement.GroupSetting;
 import ru.zov_corporation.api.repository.friend.FriendUtils;
 import ru.zov_corporation.api.system.font.FontRenderer;
 import ru.zov_corporation.api.system.font.Fonts;
@@ -86,34 +88,41 @@ public class ServerHelper extends Module {
     UUID entityUUID;
     Map<Integer, Item> stacks = new HashMap<>();
 
+    SelectSetting serverMode = new SelectSetting("Server Mode", "Select the server mode")
+            .value("aresmine", "reallyworld", "holyworld", "funtime").selected("aresmine");
+    
+    GroupSetting serverSettings = new GroupSetting("Server Settings", "Configure server-specific features")
+            .settings(serverMode).setValue(true);
+    
     BooleanSetting autoLootSetting = new BooleanSetting("Auto Loot", "Steals loot from bots at the event")
-            .setValue(true).visible(ServerUtil::isHolyWorld);
+            .setValue(true).visible(() -> serverMode.isSelected("holyworld"));
     BooleanSetting autoShulkerSetting = new BooleanSetting("Auto Shulker", "Automatically puts loot into shulker")
-            .setValue(true).visible(ServerUtil::isHolyWorld);
+            .setValue(true).visible(() -> serverMode.isSelected("holyworld"));
     BooleanSetting autoRepairSetting = new BooleanSetting("Auto Repair", "Auto repairs armor with experience bubble at low durability")
-            .setValue(true).visible(ServerUtil::isHolyWorld);
+            .setValue(true).visible(() -> serverMode.isSelected("holyworld"));
     BooleanSetting consumablesSetting = new BooleanSetting("Consumables Timer", "Displays the time until the consumable runs out")
-            .setValue(true).visible(ServerUtil::isCopyTime);
+            .setValue(true).visible(() -> serverMode.isSelected("funtime"));
     BooleanSetting autoPointSetting = new BooleanSetting("Auto Point", "Displays information on the event")
-            .setValue(true).visible(ServerUtil::isFunTime);
+            .setValue(true).visible(() -> serverMode.isSelected("funtime"));
 
 
     public void initialize() {
-        keyBindings.add(new KeyBind(Items.FIREWORK_STAR, new BindSetting("Anti Fly", "Anti Fly Key").visible(ServerUtil::isReallyWorld), 0));
-        keyBindings.add(new KeyBind(Items.FLOWER_BANNER_PATTERN, new BindSetting("Experience Scroll", "Experience Scroll Key").visible(ServerUtil::isReallyWorld), 0));
-        keyBindings.add(new KeyBind(Items.PRISMARINE_SHARD, new BindSetting("Explosive Trap", "Explosive Trap Key").visible(ServerUtil::isHolyWorld), 5));
-        keyBindings.add(new KeyBind(Items.POPPED_CHORUS_FRUIT, new BindSetting("Default Trap", "Default Trap Key").visible(ServerUtil::isHolyWorld), 0));
-        keyBindings.add(new KeyBind(Items.NETHER_STAR, new BindSetting("Stun", "Stun Key").visible(ServerUtil::isHolyWorld), 30));
-        keyBindings.add(new KeyBind(Items.FIRE_CHARGE, new BindSetting("Explosive Thing", "Explosive Thing Key").visible(ServerUtil::isHolyWorld), 0));
-        keyBindings.add(new KeyBind(Items.SNOWBALL, new BindSetting("SnowBall", "SnowBall Key").visible(() -> ServerUtil.isCopyTime() || ServerUtil.isHolyWorld()), 0));
-        keyBindings.add(new KeyBind(Items.PHANTOM_MEMBRANE, new BindSetting("Gods Aura", "God's Aura Key").visible(ServerUtil::isCopyTime), 0));
-        keyBindings.add(new KeyBind(Items.NETHERITE_SCRAP, new BindSetting("Trap", "Trap Key").visible(ServerUtil::isCopyTime), 0));
-        keyBindings.add(new KeyBind(Items.DRIED_KELP, new BindSetting("Plast", "Plast Key").visible(ServerUtil::isCopyTime), 0));
-        keyBindings.add(new KeyBind(Items.SUGAR, new BindSetting("Clear Dust", "Clear Dust Key").visible(ServerUtil::isCopyTime), 10));
-        keyBindings.add(new KeyBind(Items.FIRE_CHARGE, new BindSetting("Fire Tornado", "Fire Tornado Key").visible(ServerUtil::isCopyTime), 10));
-        keyBindings.add(new KeyBind(Items.ENDER_EYE, new BindSetting("Disorientation", "Disorientation Key").visible(ServerUtil::isCopyTime), 10));
-        keyBindings.forEach(bind -> setup(bind.setting));
+        keyBindings.add(new KeyBind(Items.FIREWORK_STAR, new BindSetting("Anti Fly", "Anti Fly Key").visible(() -> serverMode.isSelected("reallyworld")), 0));
+        keyBindings.add(new KeyBind(Items.FLOWER_BANNER_PATTERN, new BindSetting("Experience Scroll", "Experience Scroll Key").visible(() -> serverMode.isSelected("reallyworld")), 0));
+        keyBindings.add(new KeyBind(Items.PRISMARINE_SHARD, new BindSetting("Explosive Trap", "Explosive Trap Key").visible(() -> serverMode.isSelected("holyworld")), 5));
+        keyBindings.add(new KeyBind(Items.POPPED_CHORUS_FRUIT, new BindSetting("Default Trap", "Default Trap Key").visible(() -> serverMode.isSelected("holyworld")), 0));
+        keyBindings.add(new KeyBind(Items.NETHER_STAR, new BindSetting("Stun", "Stun Key").visible(() -> serverMode.isSelected("holyworld")), 30));
+        keyBindings.add(new KeyBind(Items.FIRE_CHARGE, new BindSetting("Explosive Thing", "Explosive Thing Key").visible(() -> serverMode.isSelected("holyworld")), 0));
+        keyBindings.add(new KeyBind(Items.SNOWBALL, new BindSetting("SnowBall", "SnowBall Key").visible(() -> serverMode.isSelected("funtime") || serverMode.isSelected("holyworld")), 0));
+        keyBindings.add(new KeyBind(Items.PHANTOM_MEMBRANE, new BindSetting("Gods Aura", "God's Aura Key").visible(() -> serverMode.isSelected("funtime")), 0));
+        keyBindings.add(new KeyBind(Items.NETHERITE_SCRAP, new BindSetting("Trap", "Trap Key").visible(() -> serverMode.isSelected("funtime")), 0));
+        keyBindings.add(new KeyBind(Items.DRIED_KELP, new BindSetting("Plast", "Plast Key").visible(() -> serverMode.isSelected("funtime")), 0));
+        keyBindings.add(new KeyBind(Items.SUGAR, new BindSetting("Clear Dust", "Clear Dust Key").visible(() -> serverMode.isSelected("funtime")), 10));
+        keyBindings.add(new KeyBind(Items.FIRE_CHARGE, new BindSetting("Fire Tornado", "Fire Tornado Key").visible(() -> serverMode.isSelected("funtime")), 10));
+        keyBindings.add(new KeyBind(Items.ENDER_EYE, new BindSetting("Disorientation", "Disorientation Key").visible(() -> serverMode.isSelected("funtime")), 10));
         setup(autoLootSetting, consumablesSetting, autoPointSetting, autoShulkerSetting, autoRepairSetting);
+        keyBindings.forEach(bind -> setup(bind.setting));
+        setup(serverSettings);
     }
 
     public ServerHelper() {
@@ -125,6 +134,8 @@ public class ServerHelper extends Module {
     public void activate() {
         script2.cleanup();
         stacks.clear();
+        // Sync selected server mode with ServerUtil
+        ServerUtil.setSelectedServerMode(serverMode.getSelected());
     }
 
 
@@ -132,10 +143,14 @@ public class ServerHelper extends Module {
     public void onKey(KeyEvent e) {
         keyBindings.stream().filter(bind -> e.isKeyReleased(bind.setting.getKey()) && bind.setting.isVisible() && validDistance(bind.distance)).forEach(bind -> PlayerInventoryUtil.swapAndUse(bind.item));
     }
+    
 
 
     @EventHandler
     public void onPacket(PacketEvent e) {
+        // Update ServerUtil when server mode changes
+        ServerUtil.setSelectedServerMode(serverMode.getSelected());
+        
         if (!PlayerIntersectionUtil.nullCheck()) switch (e.getPacket()) {
             case ItemPickupAnimationS2CPacket item when autoShulkerSetting.isValue() && autoShulkerSetting.isVisible() && item.getCollectorEntityId() == mc.player.getId() && mc.world.getEntityById(item.getEntityId()) instanceof ItemEntity entity -> {
                 ItemStack stack = entity.getStack();
@@ -220,6 +235,7 @@ public class ServerHelper extends Module {
             e.setScreen(null);
         }
     }
+
 
 
     @EventHandler

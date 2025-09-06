@@ -121,9 +121,23 @@ public class PlayerInventoryUtil implements QuickImports {
     }
 
     public void swapAndUse(Slot slot, Angle angle) {
+        // Сохраняем оригинальный предмет из слота
+        ItemStack originalSlotItem = slot.getStack().copy();
+        
         swapHand(slot, Hand.MAIN_HAND, false);
         PlayerIntersectionUtil.interactItem(Hand.MAIN_HAND, angle);
-        swapHand(slot, Hand.MAIN_HAND, false,true);
+        
+        // Возвращаем оригинальный предмет в слот
+        if (!originalSlotItem.isEmpty()) {
+            // Если предмет в слоте изменился после использования, восстанавливаем оригинальный
+            ItemStack currentSlotItem = slot.getStack();
+            if (!currentSlotItem.equals(originalSlotItem)) {
+                // Восстанавливаем оригинальный предмет в слот
+                mc.player.getInventory().setStack(slot.id, originalSlotItem);
+            }
+        }
+        
+        swapHand(slot, Hand.MAIN_HAND, false, true);
     }
 
     public void updateSlots() {

@@ -43,6 +43,8 @@ dependencies {
     libImpl fileTree(dir: 'libs', include: ['*.jar'])
     libImpl("org.jetbrains.kotlin:kotlin-stdlib:2.0.0")
 
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
     configurations.libImpl.dependencies.each {
         implementation(it)
     }

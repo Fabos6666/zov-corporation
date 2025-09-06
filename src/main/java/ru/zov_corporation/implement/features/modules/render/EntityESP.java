@@ -1,5 +1,4 @@
 package ru.zov_corporation.implement.features.modules.render;
-
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import net.minecraft.client.gui.DrawContext;
@@ -24,6 +23,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
@@ -53,6 +53,7 @@ import ru.zov_corporation.implement.events.render.DrawEvent;
 import ru.zov_corporation.implement.events.render.WorldLoadEvent;
 import ru.zov_corporation.implement.events.render.WorldRenderEvent;
 import ru.zov_corporation.implement.features.modules.combat.AntiBot;
+
 import java.lang.Math;
 import java.util.*;
 
@@ -64,25 +65,19 @@ public class EntityESP extends Module {
     Identifier TEXTURE = Identifier.of("textures/container.png");
     List<PlayerEntity> players = new ArrayList<>();
     Map<RegistryKey<Enchantment>, String> encMap = new HashMap<>();
-
     ValueSetting sizeSetting = new ValueSetting("Tag Size", "Tags size")
             .setValue(13).range(10, 20);
     public MultiSelectSetting entityType = new MultiSelectSetting("Entity Type", "Entity that will be displayed")
-            .value("Player","Item","TNT");
+            .value("Player", "Item", "TNT");
     MultiSelectSetting playerSetting = new MultiSelectSetting("Player Settings", "Settings for players")
-            .value("Box", "Armor", "Enchants", "Prefix", "Hand Items").visible(()-> entityType.isSelected("Player"));
-
+            .value("Box", "Armor", "Enchants", "NameTags", "Hand Items", "3D Box").visible(() -> entityType.isSelected("Player"));
     public SelectSetting boxType = new SelectSetting("Box Type", "Type of Box")
-            .value("Corner", "Full", "3D Box").visible(()-> playerSetting.isSelected("Box"));
-
-    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(()-> playerSetting.isSelected("Box") && !boxType.isSelected("3D Box"));
-
+            .value("Corner", "Full").visible(() -> playerSetting.isSelected("Box"));
+    public BooleanSetting boxOutline = new BooleanSetting("Outline", "Outline of box").visible(() -> playerSetting.isSelected("3D Box"));
     public ValueSetting boxAlpha = new ValueSetting("Alpha", "Box transparency")
-            .setValue(1.0F).range(0.1F, 1.0F).visible(()-> playerSetting.isSelected("Box") && boxType.isSelected("3D Box"));
-
+            .setValue(1.0F).range(0.1F, 1.0F).visible(() -> playerSetting.isSelected("3D Box"));
     public BooleanSetting rotateWithPlayer = new BooleanSetting("Rotate With Player", "Rotate box with player's facing direction")
-            .setValue(false).visible(()-> playerSetting.isSelected("Box") && boxType.isSelected("3D Box"));
-
+            .setValue(false).visible(() -> playerSetting.isSelected("3D Box"));
 
     public EntityESP() {
         super("EntityESP", "Entity ESP", ModuleCategory.RENDER);
@@ -108,43 +103,44 @@ public class EntityESP extends Module {
 
     @EventHandler
     public void onTick(TickEvent e) {
-        // Простое обновление списка игроков без анимаций
         players.clear();
         if (mc.world != null) {
             mc.world.getPlayers().stream()
-                .filter(player -> player != mc.player)
-                .forEach(players::add);
+                    .filter(player -> player != mc.player)
+                    .forEach(players::add);
         }
     }
 
     @EventHandler
     public void onWorldRender(WorldRenderEvent e) {
-        if (!entityType.isSelected("Player") || !playerSetting.isSelected("Box") || !boxType.isSelected("3D Box")) {
-            return;
-        }
-        
+        if (!entityType.isSelected("Player")) return;
+        float tickDelta = mc.getRenderTickCounter().getTickDelta(false);
         for (PlayerEntity player : players) {
             if (player == null) continue;
-            
-            float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(player.getBoundingBox().getCenter());
+            double interpX = MathHelper.lerp(tickDelta, player.prevX, player.getX());
+            double interpY = MathHelper.lerp(tickDelta, player.prevY, player.getY());
+            double interpZ = MathHelper.lerp(tickDelta, player.prevZ, player.getZ());
+            float interpYaw = MathHelper.lerpAngleDegrees(tickDelta, player.prevYaw, player.getYaw());
+            Vec3d interpCenter = new Vec3d(interpX, interpY, interpZ);
+            float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(interpCenter);
             if (distance < 1) continue;
-            
             boolean friend = FriendUtils.isFriend(player);
-            int color = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
-            
-            // Apply alpha to color
+            int baseColor = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
             int alpha = (int) (boxAlpha.getValue() * 255);
-            color = (color & 0x00FFFFFF) | (alpha << 24);
-            
-            Box box = player.getBoundingBox();
-            
-            if (rotateWithPlayer.isValue()) {
-                // Рендер с поворотом по направлению взгляда игрока
-                drawRotatedBox(e.getStack(), box, color, player.getYaw());
-            } else {
-                // Обычный рендер без поворота
-                Render3DUtil.drawBox(box, color, 2, true, true, true);
+            int fillColor = (baseColor & 0x00FFFFFF) | (alpha << 24);
+            int outlineColor = baseColor | 0xFF000000;
+
+            if (playerSetting.isSelected("3D Box")) {
+                Box interpBox = player.getDimensions(player.getPose()).getBoxAt(interpX, interpY, interpZ);
+                Box boxToRender = interpBox;
+                if (rotateWithPlayer.isValue()) {
+                    Vec3d center = interpBox.getCenter();
+                    boxToRender = createRotatedBox(interpBox, center, interpYaw);
+                }
+                Render3DUtil.drawBox(boxToRender, fillColor, 2, true, true, true); // Fill with alpha
+                Render3DUtil.drawBox(boxToRender, outlineColor, 2); // Outline without alpha
             }
+            
         }
     }
 
@@ -157,20 +153,15 @@ public class EntityESP extends Module {
         if (entityType.isSelected("Player")) {
             for (PlayerEntity player : players) {
                 if (player == null) continue;
-
                 Vector4d vec4d = ProjectionUtil.getVector4D(player);
                 float distance = (float) mc.getEntityRenderDispatcher().camera.getPos().distanceTo(player.getBoundingBox().getCenter());
                 boolean friend = FriendUtils.isFriend(player);
-
                 if (distance < 1) continue;
                 if (ProjectionUtil.cantSee(vec4d)) continue;
-
                 if (playerSetting.isSelected("Box")) drawBox(friend, vec4d, player);
                 if (playerSetting.isSelected("Armor")) drawArmor(context, player, vec4d, font);
                 if (playerSetting.isSelected("Hand Items")) drawHands(matrix, player, font, vec4d);
-
                 MutableText text = getTextPlayer(player, friend);
-
                 if (ServerUtil.isAresMine()) {
                     float startX = (float) ProjectionUtil.centerX(vec4d);
                     float startY = (float) (vec4d.y);
@@ -178,7 +169,6 @@ public class EntityESP extends Module {
                     float height = mc.textRenderer.fontHeight;
                     float posX = startX - width / 2f;
                     float posY = startY - 11F;
-
                     blur.render(ShapeProperties.create(matrix,
                                     posX - 2f,
                                     posY - 0.75f,
@@ -187,7 +177,6 @@ public class EntityESP extends Module {
                             .round(height / 4f)
                             .color(ColorUtil.HALF_BLACK)
                             .build());
-
                     context.drawText(mc.textRenderer, text, (int)posX, (int)posY + 1, ColorUtil.getColor(255), false);
                 } else {
                     drawText(matrix, text, ProjectionUtil.centerX(vec4d), vec4d.y - 2, font);
@@ -203,12 +192,9 @@ public class EntityESP extends Module {
                 ItemStack stack = item.getStack();
                 ContainerComponent compoundTag = stack.get(DataComponentTypes.CONTAINER);
                 List<ItemStack> list = compoundTag != null ? compoundTag.stream().toList() : List.of();
-
                 if (ProjectionUtil.cantSee(vec4d)) continue;
-
                 Text text = item.getStack().getName();
                 if (stack.getCount() > 1) text = text.copy().append(Formatting.RESET + " [" + Formatting.RED + stack.getCount() + Formatting.GRAY + "x" + Formatting.RESET + "]");
-
                 if (!list.isEmpty()) drawShulkerBox(context, stack, list, vec4d);
                 else drawText(matrix, text, ProjectionUtil.centerX(vec4d), vec4d.y, text.getContent().toString().equals("empty") ? bigFont : font);
             } else if (entity instanceof TntEntity tnt && entityType.isSelected("TNT")) {
@@ -220,11 +206,9 @@ public class EntityESP extends Module {
     }
 
     private void drawBox(boolean friend, Vector4d vec, PlayerEntity player) {
-        if (boxType.isSelected("3D Box")) {
-            // 3D Box rendering will be handled in onWorldRender
+        if (playerSetting.isSelected("3D Box")) {
             return;
         }
-        
         int client = friend ? ColorUtil.getFriendColor() : ColorUtil.getClientColor();
         int black = ColorUtil.HALF_BLACK;
         float posX = (float) vec.x;
@@ -232,7 +216,6 @@ public class EntityESP extends Module {
         float endPosX = (float) vec.z;
         float endPosY = (float) vec.w;
         float size = (endPosX - posX) / 3;
-
         if (boxType.isSelected("Corner")) {
             Render2DUtil.drawQuad(posX - 0.5F, posY - 0.5F, size, 0.5F, client);
             Render2DUtil.drawQuad(posX - 0.5F, posY, 0.5F, size + 0.5F, client);
@@ -265,20 +248,18 @@ public class EntityESP extends Module {
             Render2DUtil.drawQuad(endPosX, posY - 0.5F, 0.5F, endPosY - posY + 1F, client);
         }
     }
+
     private void drawArmor(DrawContext context, PlayerEntity player, Vector4d vec, FontRenderer font) {
         MatrixStack matrix = context.getMatrices();
         List<ItemStack> items = new ArrayList<>();
         player.getEquippedItems().forEach(s -> {if (!s.isEmpty()) items.add(s);});
-
         float posX = (float) (ProjectionUtil.centerX(vec) - items.size() * 5.5);
         float posY = (float) (vec.y - sizeSetting.getInt() / 1.5 - 15);
         float padding = 0.5F;
         float offset = -11;
-
         if (!items.isEmpty()) {
             matrix.push();
             matrix.translate(posX, posY, 0);
-
             blur.render(ShapeProperties.create(matrix,
                             -padding,
                             -padding,
@@ -287,11 +268,9 @@ public class EntityESP extends Module {
                     .round(2.5F)
                     .color(ColorUtil.HALF_BLACK)
                     .build());
-
             for (ItemStack stack : items) {
                 offset += 11;
                 Render2DUtil.defaultDrawStack(context, stack, offset, 0, false, false, 0.5F);
-
                 if (playerSetting.isSelected("Enchants")) {
                     ItemEnchantmentsComponent enchants = EnchantmentHelper.getEnchantments(stack);
                     float enchantY = -font.getFont().getSize() / 1.5F - 2;
@@ -306,7 +285,6 @@ public class EntityESP extends Module {
                             int level = enchants.getLevel(registryEntry.get());
                             MutableText enchantText = Text.literal(id + level);
                             float textWidth = font.getStringWidth(enchantText);
-
                             float textX = offset + 9f - textWidth / 2;
                             float textY = enchantY + 8;
                             drawText(matrix, enchantText, textX, textY, font);
@@ -319,17 +297,14 @@ public class EntityESP extends Module {
         }
     }
 
-
     private void drawHands(MatrixStack matrix, PlayerEntity player, FontRenderer font, Vector4d vec) {
         double posY = vec.w;
         for (ItemStack stack : player.getHandItems()) {
             if (stack.isEmpty()) continue;
-
             MutableText text = Text.empty().append(stack.getName());
-
             if (stack.getCount() > 1) text.append(Formatting.RESET + " [" + Formatting.RED + stack.getCount() + Formatting.GRAY + "x" + Formatting.RESET + "]");
             posY += font.getStringHeight(text) / 2 + 3;
-            drawText(matrix,text,ProjectionUtil.centerX(vec),posY,font);
+            drawText(matrix, text, ProjectionUtil.centerX(vec), posY, font);
         }
     }
 
@@ -338,15 +313,12 @@ public class EntityESP extends Module {
         int width = 176;
         int height = 67;
         int color = ColorUtil.multBright(ColorUtil.replAlpha(((BlockItem) itemStack.getItem()).getBlock().getDefaultMapColor().color, 1F), 1);
-
         matrix.push();
         matrix.translate(ProjectionUtil.centerX(vec) - (double) width / 4, vec.w + 2, -200 + Math.cos(vec.x));
         matrix.scale(0.5F, 0.5F, 1);
         context.drawTexture(RenderLayer::getGuiTextured, TEXTURE, 0, 0, 0, 0, width, height, width, height, color);
-
         int posX = 7;
         int posY = 6;
-
         for (ItemStack stack : stacks.stream().toList()) {
             Render2DUtil.defaultDrawStack(context, stack, posX, posY, false, true, 1);
             posX += 18;
@@ -365,7 +337,6 @@ public class EntityESP extends Module {
         float width = font.getStringWidth(text);
         float posX = (float) (startX - width / 2);
         float posY = (float) startY - height;
-
         blur.render(ShapeProperties.create(matrix, posX - paddingX, posY - paddingY, width + paddingX * 2, height + paddingY * 2)
                 .round(height / 4).color(ColorUtil.HALF_BLACK).build());
         font.drawText(matrix, text, posX, posY + 3);
@@ -376,7 +347,7 @@ public class EntityESP extends Module {
         MutableText text = Text.empty();
         if (friend) text.append("[" + Formatting.GREEN + "F" + Formatting.RESET + "] ");
         if (AntiBot.getInstance().isBot(player)) text.append("[" + Formatting.DARK_RED + "BOT" + Formatting.RESET + "] ");
-        if (playerSetting.isSelected("Prefix")) text.append(player.getDisplayName()); else text.append(player.getName());
+        if (playerSetting.isSelected("NameTags")) text.append(player.getDisplayName()); else text.append(player.getName());
         if (player.getOffHandStack().getItem().equals(Items.PLAYER_HEAD) || player.getOffHandStack().getItem().equals(Items.TOTEM_OF_UNDYING))
             text.append(Formatting.RESET + getSphere(player.getOffHandStack()));
         if (health >= 0 && health <= player.getMaxHealth())
@@ -396,57 +367,41 @@ public class EntityESP extends Module {
     }
 
     private void drawRotatedBox(MatrixStack matrixStack, Box box, int color, float yaw) {
-        // Получаем центр бокса
         Vec3d center = box.getCenter();
-        
-        // Создаем повернутый бокс
         Box rotatedBox = createRotatedBox(box, center, yaw);
-        
-        // Рендерим повернутый бокс
-        Render3DUtil.drawBox(rotatedBox, color, 2, true, true, true);
+        Render3DUtil.drawBox(rotatedBox, color, 2, true, true, true); // Ensure rendering through walls
     }
-    
+
     private Box createRotatedBox(Box originalBox, Vec3d center, float yaw) {
-        // Получаем углы в радианах
         double radians = Math.toRadians(yaw);
         double cos = Math.cos(radians);
         double sin = Math.sin(radians);
-        
-        // Получаем размеры бокса
         double halfWidth = (originalBox.maxX - originalBox.minX) / 2.0;
         double halfHeight = (originalBox.maxY - originalBox.minY) / 2.0;
         double halfDepth = (originalBox.maxZ - originalBox.minZ) / 2.0;
-        
-        // Создаем 8 углов бокса относительно центра
         Vec3d[] corners = {
-            new Vec3d(-halfWidth, -halfHeight, -halfDepth), // minX, minY, minZ
-            new Vec3d(halfWidth, -halfHeight, -halfDepth),  // maxX, minY, minZ
-            new Vec3d(halfWidth, -halfHeight, halfDepth),   // maxX, minY, maxZ
-            new Vec3d(-halfWidth, -halfHeight, halfDepth),  // minX, minY, maxZ
-            new Vec3d(-halfWidth, halfHeight, -halfDepth),  // minX, maxY, minZ
-            new Vec3d(halfWidth, halfHeight, -halfDepth),   // maxX, maxY, minZ
-            new Vec3d(halfWidth, halfHeight, halfDepth),    // maxX, maxY, maxZ
-            new Vec3d(-halfWidth, halfHeight, halfDepth)    // minX, maxY, maxZ
+                new Vec3d(-halfWidth, -halfHeight, -halfDepth),
+                new Vec3d(halfWidth, -halfHeight, -halfDepth),
+                new Vec3d(halfWidth, -halfHeight, halfDepth),
+                new Vec3d(-halfWidth, -halfHeight, halfDepth),
+                new Vec3d(-halfWidth, halfHeight, -halfDepth),
+                new Vec3d(halfWidth, halfHeight, -halfDepth),
+                new Vec3d(halfWidth, halfHeight, halfDepth),
+                new Vec3d(-halfWidth, halfHeight, halfDepth)
         };
-        
-        // Поворачиваем каждый угол
         Vec3d[] rotatedCorners = new Vec3d[8];
         for (int i = 0; i < 8; i++) {
             Vec3d corner = corners[i];
-            // Поворот вокруг Y оси (yaw)
             double newX = corner.x * cos - corner.z * sin;
             double newZ = corner.x * sin + corner.z * cos;
             rotatedCorners[i] = new Vec3d(newX, corner.y, newZ).add(center);
         }
-        
-        // Находим минимальные и максимальные координаты
         double minX = rotatedCorners[0].x;
         double minY = rotatedCorners[0].y;
         double minZ = rotatedCorners[0].z;
         double maxX = rotatedCorners[0].x;
         double maxY = rotatedCorners[0].y;
         double maxZ = rotatedCorners[0].z;
-        
         for (Vec3d corner : rotatedCorners) {
             minX = Math.min(minX, corner.x);
             minY = Math.min(minY, corner.y);
@@ -455,7 +410,6 @@ public class EntityESP extends Module {
             maxY = Math.max(maxY, corner.y);
             maxZ = Math.max(maxZ, corner.z);
         }
-        
         return new Box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 

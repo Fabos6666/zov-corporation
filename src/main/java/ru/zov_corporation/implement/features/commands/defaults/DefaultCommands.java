@@ -36,7 +36,8 @@ public final class DefaultCommands {
                 new RCTCommand(main),
                 new FriendCommand(),
                 new PrefixCommand(),
-                new DebugCommand()
+                new DebugCommand(),
+                new KeyCommand(main)
         ));
         return Collections.unmodifiableList(commands);
     }

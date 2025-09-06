@@ -36,7 +36,6 @@ import ru.zov_corporation.implement.features.modules.render.Hud;
 
 import java.util.Objects;
 
-
 @Setter
 @Getter
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -50,15 +49,13 @@ public class Aura extends Module {
     PointFinder pointFinder = new PointFinder();
     @NonFinal
     LivingEntity target, lastTarget;
+    Float maxDistance = 3.3f;
 
     MultiSelectSetting targetType = new MultiSelectSetting("Target Type", "Filters the entire list of targets by type")
             .value("Players", "Mobs", "Animals", "Friends");
 
     MultiSelectSetting attackSetting = new MultiSelectSetting("Attack Setting", "Allows you to customize the attack")
-            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls");
-
-    ValueSetting maxDistanceSetting = new ValueSetting("Attack Distance", "Maximum distance for attacking targets")
-            .setValue(3.0F).range(1.0F, 6.0F);
+            .value("Only Critical", "Dynamic Cooldown", "Break Shield", "UnPress Shield", "No Attack When Eat", "Ignore The Walls", "Smart Crits");
 
     SelectSetting correctionType = new SelectSetting("Correction Type", "Selects the type of correction")
             .value("Free", "Focused").selected("Free");
@@ -73,14 +70,26 @@ public class Aura extends Module {
             .value("Cube", "Circle", "Ghosts").selected("Circle");
 
     ValueSetting ghostSpeed = new ValueSetting("Ghost Speed", "Speed of ghost flying around the target")
-            .setValue(1).range(1F, 2F).visible(()-> targetEspType.isSelected("Ghosts"));
+            .setValue(1).range(1F, 2F).visible(() -> targetEspType.isSelected("Ghosts"));
 
     GroupSetting targetEspGroup = new GroupSetting("Target Esp", "Displays the player in the world")
             .settings(targetEspType, ghostSpeed).setValue(true);
 
+    SelectSetting sprintResetMode = new SelectSetting("Reset Type", "Selects the sprint reset type")
+            .value("Client", "Normal", "Legit").selected("Client");
+
+    GroupSetting sprintReset = new GroupSetting("Sprint Reset", "Resets the sprint before attack")
+            .settings(sprintResetMode).setValue(true);
+
+    SelectSetting multiPointMode = new SelectSetting("MultiPoint Mode", "Type of the multipoint")
+            .value("Smooth", "Fast").selected("Smooth");
+
+    GroupSetting multipoint = new GroupSetting("Multi Point", "Selects random point in the hitbox of the target")
+            .settings(multiPointMode).setValue(true);
+
     public Aura() {
         super("Aura", ModuleCategory.COMBAT);
-        setup(targetType, attackSetting, maxDistanceSetting, correctionGroup, aimMode, targetEspGroup);
+        setup(targetType, attackSetting, correctionGroup, aimMode, targetEspGroup, sprintReset, multipoint);
     }
 
     @Override
@@ -103,7 +112,6 @@ public class Aura extends Module {
             }
         }
     }
-
 
     @EventHandler
     public void onPacket(PacketEvent e) {
@@ -134,11 +142,10 @@ public class Aura extends Module {
 
     private LivingEntity updateTarget() {
         TargetSelector.EntityFilter filter = new TargetSelector.EntityFilter(targetType.getSelected());
-        targetSelector.searchTargets(mc.world.getEntities(), maxDistanceSetting.getValue(), 360, attackSetting.isSelected("Ignore The Walls"));
+        targetSelector.searchTargets(mc.world.getEntities(), maxDistance, 360, attackSetting.isSelected("Ignore The Walls"));
         targetSelector.validateTarget(filter::isValid);
         return targetSelector.getCurrentTarget();
     }
-
 
     private void rotateToTarget(AttackPerpetrator.AttackPerpetratorConfigurable config) {
         AttackHandler attackHandler = Main.getInstance().getAttackPerpetrator().getAttackHandler();
@@ -152,22 +159,35 @@ public class Aura extends Module {
                 }
             }
             case "FunTime" -> {
-                if (attackHandler.canAttack(config, (int) maxDistanceSetting.getValue())) {
+                if (attackHandler.canAttack(config, 3)) {
                     controller.clear();
                     controller.rotateTo(rotation, target, 40, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
                 }
             }
-            case "Matrix" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            case "Matrix" -> {
+                controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
             }
-            case "Linear" -> { controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            case "Linear" -> {
+                controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
             }
-            
         }
     }
 
     public AttackPerpetrator.AttackPerpetratorConfigurable getConfig() {
-        float maxDistance = maxDistanceSetting.getValue();
-        Pair<Vec3d, Box> point = pointFinder.computeVector(target, maxDistance, RotationController.INSTANCE.getRotation(), getSmoothMode().randomValue(), attackSetting.isSelected("Ignore The Walls"));
+        Vec3d baseVelocity = getSmoothMode().randomValue();
+        Vec3d modifiedVelocity = multipoint.isValue() ? baseVelocity : Vec3d.ZERO; // Проверка multipoint
+
+        if (multipoint.isValue()) {
+            switch (multiPointMode.getSelected()) {
+                case "Fast":
+                    float sharpFactor = 2.5f;
+                    modifiedVelocity = baseVelocity.multiply(sharpFactor);
+                    break;
+                // Smooth: оставляем baseVelocity
+            }
+        }
+
+        Pair<Vec3d, Box> point = pointFinder.computeVector(target, maxDistance, RotationController.INSTANCE.getRotation(), modifiedVelocity, attackSetting.isSelected("Ignore The Walls"));
         Angle angle = AngleUtil.fromVec3d(point.getLeft().subtract(Objects.requireNonNull(mc.player).getEyePos()));
         Box box = point.getRight();
         return new AttackPerpetrator.AttackPerpetratorConfigurable(target, angle, maxDistance, attackSetting.getSelected(), aimMode, box);
@@ -176,7 +196,6 @@ public class Aura extends Module {
     public RotationConfig getRotationConfig() {
         return new RotationConfig(getSmoothMode(), correctionGroup.isValue(), correctionType.isSelected("Free"));
     }
-
 
     public AngleSmoothMode getSmoothMode() {
         return switch (aimMode.getSelected()) {

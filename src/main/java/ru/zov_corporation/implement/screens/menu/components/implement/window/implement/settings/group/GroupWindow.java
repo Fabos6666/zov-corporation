@@ -34,7 +34,7 @@ public class GroupWindow extends AbstractWindow {
         );
     }
 
-    
+
     @Override
     public void drawWindow(DrawContext context, int mouseX, int mouseY, float delta) {
         MatrixStack matrix = context.getMatrices();
@@ -65,11 +65,11 @@ public class GroupWindow extends AbstractWindow {
             }
 
             component.x = x;
-            component.y = (float) (y + 19 + offset + smoothedScroll);
+            component.y = (float) (y + 19 + offset + (getComponentHeight() - 25 - component.height) + smoothedScroll);
             component.width = width;
             component.render(context, mouseX, mouseY, delta);
 
-            offset += component.height;
+            offset -= component.height;
             totalHeight += (int) component.height;
         }
         if (isLimitedHeight) scissorManager.pop();
@@ -79,7 +79,7 @@ public class GroupWindow extends AbstractWindow {
         smoothedScroll = MathHelper.lerp(0.1F, smoothedScroll, scroll);
     }
 
-    
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         draggable(MathUtil.isHovered(mouseX, mouseY, x, y, width, 19) && button == 0);
@@ -101,7 +101,7 @@ public class GroupWindow extends AbstractWindow {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    
+
     @Override
     public boolean isHover(double mouseX, double mouseY) {
         components.forEach(abstractComponent -> abstractComponent.isHover(mouseX, mouseY));
@@ -114,14 +114,14 @@ public class GroupWindow extends AbstractWindow {
         return super.isHover(mouseX, mouseY);
     }
 
-    
+
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         components.forEach(abstractComponent -> abstractComponent.mouseReleased(mouseX, mouseY, button));
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         boolean scrolled = MathHelper.clamp(height, 0, 200) == 200 && MathUtil.isHovered(mouseX, mouseY, x, y, width, height);
@@ -143,7 +143,7 @@ public class GroupWindow extends AbstractWindow {
         components.forEach(abstractComponent -> abstractComponent.charTyped(chr, modifiers));
         return super.charTyped(chr, modifiers);
     }
-    
+
     public int getComponentHeight() {
         float offsetY = 0;
         for (AbstractSettingComponent component : components) {

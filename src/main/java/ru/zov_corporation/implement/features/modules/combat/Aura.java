@@ -64,7 +64,7 @@ public class Aura extends Module {
             .settings(correctionType).setValue(true);
 
     SelectSetting aimMode = new SelectSetting("Rotation Type", "Allows you to select the rotation type")
-            .value("FunTime", "Snap", "Matrix", "Linear").selected("Snap");
+            .value("FunTime", "Snap", "Matrix", "Linear", "SpookyTime").selected("Snap");
 
     SelectSetting targetEspType = new SelectSetting("Target Esp Type", "Selects the type of target esp")
             .value("Cube", "Circle", "Ghosts").selected("Circle");
@@ -170,12 +170,15 @@ public class Aura extends Module {
             case "Linear" -> {
                 controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
             }
+                case "SpookyTime" -> {
+                controller.rotateTo(rotation, target, 1, rotationConfig, TaskPriority.HIGH_IMPORTANCE_1, this);
+            }
         }
     }
 
     public AttackPerpetrator.AttackPerpetratorConfigurable getConfig() {
         Vec3d baseVelocity = getSmoothMode().randomValue();
-        Vec3d modifiedVelocity = multipoint.isValue() ? baseVelocity : Vec3d.ZERO; // Проверка multipoint
+        Vec3d modifiedVelocity = multipoint.isValue() ? baseVelocity : Vec3d.ZERO;
 
         if (multipoint.isValue()) {
             switch (multiPointMode.getSelected()) {
@@ -183,7 +186,6 @@ public class Aura extends Module {
                     float sharpFactor = 2.5f;
                     modifiedVelocity = baseVelocity.multiply(sharpFactor);
                     break;
-                // Smooth: оставляем baseVelocity
             }
         }
 
@@ -203,6 +205,7 @@ public class Aura extends Module {
             case "Matrix" -> new MatrixSmoothMode();
             case "Snap" -> new SnapSmoothMode();
             case "Linear" -> new LinearSmoothMode();
+            case "SpookyTime" -> new SpookyTimeSmoothMode();
             default -> new LinearSmoothMode();
         };
     }
